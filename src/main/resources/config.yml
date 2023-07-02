@@ -12,7 +12,7 @@
 
 # When this is set to 'true', the 'worlds' section under each module config will represent worlds that the feature is disabled in
 # When this is set to 'false', the 'worlds' section under each module config will represent worlds that the feature is enabled in
-worlds-is-blacklist: false
+worlds-is-blacklist: true
 
 # To use the per-world feature you must specify a list of worlds in square brackets []
 # If empty, will be enabled in all worlds.
@@ -55,15 +55,13 @@ disable-sword-sweep:
   worlds: []
 
 disable-attack-sounds:
-  enabled: false
+  enabled: true
   worlds: []
   # The sounds that will be blocked by this module
   blocked-sounds:
     - "minecraft:entity.player.attack.strong"
     - "minecraft:entity.player.attack.sweep"
     - "minecraft:entity.player.attack.nodamage"
-    - "minecraft:entity.player.attack.knockback"
-    - "minecraft:entity.player.attack.crit"
     - "minecraft:entity.player.attack.weak"
 
 disable-crafting:
@@ -75,7 +73,10 @@ disable-crafting:
     - shield
   # Show the user a message if they try to craft a blacklisted item
   showMessage: true
-  message: "&cYou cannot craft that item!"
+  message: "&cERROR: You cannot craft that item due to the 1.8 combat system! &6Shields
+    will automatically deploy upon a right click. To get the old 1.7 blocking animation
+    back, use the three mods Shield Disruptor, Sword Blocking, and Nostalgic Tweaks
+    together."
 
 disable-offhand:
   # Disable the usage of the offhand
@@ -83,10 +84,10 @@ disable-offhand:
   enabled: true
   worlds: []
   # Whether the following list allows items or blocks them
-  whitelist: true
+  whitelist: false
   # List of items that should be allowed/blocked
   # Example: [diamond_sword,BOW]
-  items: []
+  items: [diamond_sword,BOW]
 
 old-brewing-stand:
   # Automatically refuels brewing stands
@@ -112,8 +113,8 @@ disable-enderpearl-cooldown:
   # The cooldown, in seconds
   cooldown: 0
   # Show the user a message if they try to use an enderpearl and the cooldown has not expired yet
-  showMessage: true
-  message: "&cYou must wait &7%ds&c before using an enderpearl again!"
+  showMessage: false
+  message: "&cERROR: You must wait &7%ds&c before using an enderpearl again!"
 
 old-tool-damage:
   # This is to set the tool damage as in pre-1.9
@@ -267,7 +268,7 @@ old-fishing-knockback:
   damage: 0.0001
   # Whether the EntityDamageEvent should be used instead of the EntityDamageByEntityEvent
   # Set to true when using plugins like NCP that check range
-  useEntityDamageEvent: false
+  useEntityDamageEvent: true
   # This is to cancel dragging in the entity attached to the fishing rod when reeling in, like in 1.8
   # Options: all, players, mobs, none. players allows compatibility with WorldGuard pvp-deny regions
   cancelDraggingIn: players
@@ -305,7 +306,7 @@ old-player-knockback:
   # knockback-extra-vertical: 0.085
   #
   # Minigame servers use higher vertical knockback and lower horizontal knockback, exact values are unknown.
-  enabled: true
+  enabled: false
   worlds: []
   # Horizontal knockback is reduced by 40% for every successful attack by the player, with no limit
   # Increase to make clicking more important, decrease to make it less important

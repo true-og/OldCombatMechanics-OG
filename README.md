@@ -9,7 +9,8 @@
 Maintained for [TrueOG](https://true-og.net).
 
 ## Changes
-- Removed proprietary Spartan Anti-Cheat API
+- Removed proprietary Spartan Anti-Cheat API.
+- Builds with TrueOG's config file.
 
 ## Installation
 Build the plugin using:

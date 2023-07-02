@@ -23,8 +23,6 @@ repositories {
     maven("https://repo.codemc.org/repository/maven-public/")
     // Netty library from Minecraft
     maven("https://libraries.minecraft.net/")
-    // Spartan API
-    maven("https://repo.crazycrew.us/api")
 }
 
 dependencies {
