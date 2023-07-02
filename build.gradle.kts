@@ -34,8 +34,8 @@ dependencies {
 }
 
 group = "kernitus.plugin.OldCombatMechanics"
-version = "1.12.3-beta"
-description = "OldCombatMechanics"
+version = "1.12.3-beta-OG"
+description = "OldCombatMechanics-OG"
 
 java {
     toolchain {

@@ -6,7 +6,7 @@
 
 # OldCombatMechanics-OG
 #### a soft fork of OldCombatMechanics by kernitus and Rayzr522
-Maintained for [TrueOG](https://true-og.net).
+Maintained by [NotAlexNoyle](https://github.com/NotAlexNoyle/) for [TrueOG](https://true-og.net).
 
 ## Changes
 - Removed proprietary Spartan Anti-Cheat API.
@@ -17,7 +17,7 @@ Build the plugin using:
 
 ./gradlew build
 
-then move it to your plugin directory in your server root.
+After that, move it to your plugin directory in your server root from build/libs/OldCombatMechanics.jar.
 
 ## Contributions
 
