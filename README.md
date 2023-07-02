@@ -6,7 +6,7 @@
 
 # OldCombatMechanics-OG
 #### a soft fork of OldCombatMechanics by kernitus and Rayzr522
-Maintained for {TrueOG](https://true-og.net).
+Maintained for [TrueOG](https://true-og.net).
 
 ## Changes
 - Removed proprietary Spartan Anti-Cheat API
