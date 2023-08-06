@@ -16,7 +16,9 @@
 # == Compilation output / working files
 # ===
 out
-builds
+bin
+build
 target
 META-INF
 dependency-reduced-pom.xml
+/.gradle/

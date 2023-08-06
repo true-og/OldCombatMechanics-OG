@@ -10,7 +10,10 @@ Maintained by [NotAlexNoyle](https://github.com/NotAlexNoyle/) for [TrueOG](http
 
 ## Changes
 - Removed proprietary Spartan Anti-Cheat API.
-- Builds with TrueOG's config file.
+- Builds with TrueOG's config file set-in-stone.
+- Removed update checker.
+- Removed config file updater.
+- Added an error message when offhand items are blocked from use.
 
 ## Installation
 Build the plugin using:

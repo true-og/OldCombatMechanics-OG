@@ -10,7 +10,6 @@ import kernitus.plugin.OldCombatMechanics.commands.OCMCommandHandler;
 import kernitus.plugin.OldCombatMechanics.hooks.PlaceholderAPIHook;
 import kernitus.plugin.OldCombatMechanics.hooks.api.Hook;
 import kernitus.plugin.OldCombatMechanics.module.*;
-import kernitus.plugin.OldCombatMechanics.updater.ModuleUpdateChecker;
 import kernitus.plugin.OldCombatMechanics.utilities.Config;
 import kernitus.plugin.OldCombatMechanics.utilities.Messenger;
 import kernitus.plugin.OldCombatMechanics.utilities.damage.AttackCooldownTracker;
@@ -132,14 +131,6 @@ public class OCMMain extends JavaPlugin {
         // Logging to console the enabling of OCM
         logger.info(pdfFile.getName() + " v" + pdfFile.getVersion() + " has been enabled");
 
-        if (Config.moduleEnabled("update-checker"))
-            Bukkit.getScheduler().runTaskLaterAsynchronously(this,
-                    () -> new UpdateChecker(this).performUpdate(), 20L);
-
-        metrics.addCustomChart(new SimplePie("auto_update_pie",
-                () -> Config.moduleSettingEnabled("update-checker",
-                        "auto-update") ? "enabled" : "disabled"));
-
     }
 
     @Override
@@ -172,8 +163,6 @@ public class OCMMain extends JavaPlugin {
     }
 
     private void registerModules() {
-        // Update Checker (also a module so we can use the dynamic registering/unregistering)
-        ModuleLoader.addModule(new ModuleUpdateChecker(this));
 
         // Module listeners
         ModuleLoader.addModule(new ModuleAttackCooldown(this));

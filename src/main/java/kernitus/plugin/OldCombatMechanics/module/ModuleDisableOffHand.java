@@ -7,6 +7,8 @@ package kernitus.plugin.OldCombatMechanics.module;
 
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.utilities.ConfigUtils;
+import net.md_5.bungee.api.ChatColor;
+
 import org.bukkit.Material;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -44,6 +46,7 @@ public class ModuleDisableOffHand extends OCMModule {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onSwapHandItems(PlayerSwapHandItemsEvent e) {
         if (isEnabled(e.getPlayer().getWorld()) && shouldWeCancel(e.getOffHandItem())) {
+            e.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', "&7[&2True&4OG&7] &CERROR: &6That item is not allowed in the offhand. This helps to even the playing field for 1.8 players."));
             e.setCancelled(true);
         }
     }
