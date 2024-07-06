@@ -468,7 +468,7 @@ disable-offhand:
   # Example: [diamond_sword,BOW]
   items: [DRAGON_EGG,END_ROD,REDSTONE_TORCH,SOUL_TORCH,TORCH,APPLE,MUSHROOM_STEW,BREAD,PORKCHOP,COOKED_PORKCHOP,ENCHANTED_GOLDEN_APPLE,GOLDEN_APPLE,COD,COOKED_COD,SALMON,COOKED_SALMON,TROPICAL_FISH,PUFFERFISH,CAKE,COOKIE,MELON_SLICE,DRIED_KELP,BEEF,COOKED_BEEF,CHICKEN,COOKED_CHICKEN,ROTTEN_FLESH,CARROT,CARROT_ON_A_STICK,GOLDEN_CARROT,BAKED_POTATO,POISONOUS_POTATO,POTATO,PUMPKIN_PIE,COOKED_RABBIT,RABBIT,RABBIT_STEW,COOKED_MUTTON,MUTTON,CHORUS_FRUIT,BEETROOT,BEETROOT_SOUP,SUSPICIOUS_STEW,SWEET_BERRIES,HONEY_BOTTLE,GLOW_BERRIES,MILK_BUCKET]
   # Message to send user when denied. Set to '' to disable
-  denied-message: "&7[&2True&4OG&7] &CERROR: &6That item is not allowed in the offhand. This helps to even the playing field for 1.8 players."
+  denied-message: "&cERROR: That item is not allowed in the offhand! &6This helps to even the playing field for 1.8 players."
 
 old-brewing-stand:
   # Automatically refuels brewing stands
