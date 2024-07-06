@@ -9,9 +9,10 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 plugins {
     `java-library`
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    // For ingametesting
+	id("eclipse")
+	// For ingametesting
     //id("io.papermc.paperweight.userdev") version "1.5.10"
-    idea
+	idea
 }
 
 // Make sure javadocs are available to IDE

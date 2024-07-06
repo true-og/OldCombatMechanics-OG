@@ -4,13 +4,22 @@
      file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -->
 
-<p align="center">
-<img src="res/ocm-icon.png" width=320>
-<img src="res/ocm-banner.png" width=1000>
-</p>
+# OldCombatMechanics-OG
+#### a soft fork of OldCombatMechanics by kernitus and Rayzr522
+Maintained by [NotAlexNoyle](https://github.com/NotAlexNoyle/) for [TrueOG](https://true-og.net).
 
-## by kernitus and Rayzr522
-A performant Spigot/Paper plugin to configure combat-related mechanics from 1.9 onwards.
+## Changes
+- Builds with TrueOG's config file.
+- Removed update checker.
+- Removed config file updater.
+- Removed metrics.
+
+## Installation
+Build the plugin using:
+
+./gradlew build
+
+Then move it to your server's plugins folder.
 
 ## Modesets
 Modesets can be configured for your players to choose from. Each modeset can have any combination of the below features enabled, with examples provided to replicate 1.9 vs 1.8 combat. Players can switch between modesets via command, choosing from the modesets allowed for the world they are in.
@@ -79,10 +88,10 @@ If you are interested in contributing, please [check this page first](.github/CO
     <img src="res/jenkins.png" alt="Jenkins" height="100">
 </a>
 
-<hr/>
+After that, move it to your plugin directory in your server root from build/libs/OldCombatMechanics.jar.
 
+## Contributions
 
-<a href="https://bstats.org/plugin/bukkit/OldCombatMechanics">
-    <img src="https://bstats.org/signatures/bukkit/OldCombatMechanics.svg" alt="bStats">
-</a>
+If you are interested in contributing, first consider doing so [UPSTREAM](.github/CONTRIBUTING.md).
 
+If you want to contribute to TrueOG, join our [Discord](https://discord.gg/ma9pMYpBU6).

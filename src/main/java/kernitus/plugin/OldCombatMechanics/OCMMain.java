@@ -5,24 +5,13 @@
  */
 package kernitus.plugin.OldCombatMechanics;
 
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import kernitus.plugin.OldCombatMechanics.commands.OCMCommandCompleter;
-import kernitus.plugin.OldCombatMechanics.commands.OCMCommandHandler;
-import kernitus.plugin.OldCombatMechanics.hooks.PlaceholderAPIHook;
-import kernitus.plugin.OldCombatMechanics.hooks.api.Hook;
-import kernitus.plugin.OldCombatMechanics.module.*;
-import kernitus.plugin.OldCombatMechanics.updater.ModuleUpdateChecker;
-import kernitus.plugin.OldCombatMechanics.utilities.Config;
-import kernitus.plugin.OldCombatMechanics.utilities.Messenger;
-import kernitus.plugin.OldCombatMechanics.utilities.damage.AttackCooldownTracker;
-import kernitus.plugin.OldCombatMechanics.utilities.damage.EntityDamageByEntityListener;
-import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
-import kernitus.plugin.OldCombatMechanics.utilities.storage.ModesetListener;
-import kernitus.plugin.OldCombatMechanics.utilities.storage.PlayerStorage;
-import org.bstats.bukkit.Metrics;
-import org.bstats.charts.SimpleBarChart;
-import org.bstats.charts.SimplePie;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.EventException;
@@ -33,272 +22,279 @@ import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+
+import kernitus.plugin.OldCombatMechanics.commands.OCMCommandCompleter;
+import kernitus.plugin.OldCombatMechanics.commands.OCMCommandHandler;
+import kernitus.plugin.OldCombatMechanics.hooks.PlaceholderAPIHook;
+import kernitus.plugin.OldCombatMechanics.hooks.api.Hook;
+import kernitus.plugin.OldCombatMechanics.module.ModuleAttackCooldown;
+import kernitus.plugin.OldCombatMechanics.module.ModuleAttackFrequency;
+import kernitus.plugin.OldCombatMechanics.module.ModuleAttackSounds;
+import kernitus.plugin.OldCombatMechanics.module.ModuleChorusFruit;
+import kernitus.plugin.OldCombatMechanics.module.ModuleDisableBowBoost;
+import kernitus.plugin.OldCombatMechanics.module.ModuleDisableCrafting;
+import kernitus.plugin.OldCombatMechanics.module.ModuleDisableElytra;
+import kernitus.plugin.OldCombatMechanics.module.ModuleDisableEnderpearlCooldown;
+import kernitus.plugin.OldCombatMechanics.module.ModuleDisableOffHand;
+import kernitus.plugin.OldCombatMechanics.module.ModuleDisableProjectileRandomness;
+import kernitus.plugin.OldCombatMechanics.module.ModuleFishingKnockback;
+import kernitus.plugin.OldCombatMechanics.module.ModuleFishingRodVelocity;
+import kernitus.plugin.OldCombatMechanics.module.ModuleGoldenApple;
+import kernitus.plugin.OldCombatMechanics.module.ModuleNoLapisEnchantments;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldArmourDurability;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldArmourStrength;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldBrewingStand;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldBurnDelay;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldCriticalHits;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldPotionEffects;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldToolDamage;
+import kernitus.plugin.OldCombatMechanics.module.ModulePlayerKnockback;
+import kernitus.plugin.OldCombatMechanics.module.ModulePlayerRegen;
+import kernitus.plugin.OldCombatMechanics.module.ModuleProjectileKnockback;
+import kernitus.plugin.OldCombatMechanics.module.ModuleShieldDamageReduction;
+import kernitus.plugin.OldCombatMechanics.module.ModuleSwordBlocking;
+import kernitus.plugin.OldCombatMechanics.module.ModuleSwordSweep;
+import kernitus.plugin.OldCombatMechanics.module.ModuleSwordSweepParticles;
+import kernitus.plugin.OldCombatMechanics.utilities.Config;
+import kernitus.plugin.OldCombatMechanics.utilities.Messenger;
+import kernitus.plugin.OldCombatMechanics.utilities.damage.AttackCooldownTracker;
+import kernitus.plugin.OldCombatMechanics.utilities.damage.EntityDamageByEntityListener;
+import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
+import kernitus.plugin.OldCombatMechanics.utilities.storage.ModesetListener;
+import kernitus.plugin.OldCombatMechanics.utilities.storage.PlayerStorage;
 
 public class OCMMain extends JavaPlugin {
 
-    private static OCMMain INSTANCE;
-    private final Logger logger = getLogger();
-    private final OCMConfigHandler CH = new OCMConfigHandler(this);
-    private final List<Runnable> disableListeners = new ArrayList<>();
-    private final List<Runnable> enableListeners = new ArrayList<>();
-    private final List<Hook> hooks = new ArrayList<>();
-    private ProtocolManager protocolManager;
+	private static OCMMain INSTANCE;
+	private final Logger logger = getLogger();
+	private final OCMConfigHandler CH = new OCMConfigHandler(this);
+	private final List<Runnable> disableListeners = new ArrayList<>();
+	private final List<Runnable> enableListeners = new ArrayList<>();
+	private final List<Hook> hooks = new ArrayList<>();
+	private ProtocolManager protocolManager;
 
-    public OCMMain() {
-        super();
-    }
+	public OCMMain() {
+		super();
+	}
 
-    @Override
-    public void onEnable() {
-        INSTANCE = this;
+	@Override
+	public void onEnable() {
+		INSTANCE = this;
 
-        // Setting up config.yml
-        CH.setupConfigIfNotPresent();
+		// Setting up config.yml
+		CH.setupConfigIfNotPresent();
 
-        // Initialise persistent player storage
-        PlayerStorage.initialise(this);
+		// Initialise persistent player storage
+		PlayerStorage.initialise(this);
 
-        // Initialise ModuleLoader utility
-        ModuleLoader.initialise(this);
+		// Initialise ModuleLoader utility
+		ModuleLoader.initialise(this);
 
-        // Initialise Config utility
-        Config.initialise(this);
+		// Initialise Config utility
+		Config.initialise(this);
 
-        // Initialise the Messenger utility
-        Messenger.initialise(this);
+		// Initialise the Messenger utility
+		Messenger.initialise(this);
 
-        try {
-            if (getServer().getPluginManager().getPlugin("ProtocolLib") != null &&
-                    getServer().getPluginManager().getPlugin("ProtocolLib").isEnabled())
-                protocolManager = ProtocolLibrary.getProtocolManager();
-        } catch (Exception e) {
-            Messenger.warn("No ProtocolLib detected, some features might be disabled");
-        }
+		try {
+			if (getServer().getPluginManager().getPlugin("ProtocolLib") != null &&
+					getServer().getPluginManager().getPlugin("ProtocolLib").isEnabled())
+				protocolManager = ProtocolLibrary.getProtocolManager();
+		} catch (Exception e) {
+			Messenger.warn("No ProtocolLib detected, some features might be disabled");
+		}
 
-        // Register all the modules
-        registerModules();
+		// Register all the modules
+		registerModules();
 
-        // Register all hooks for integrating with other plugins
-        registerHooks();
+		// Register all hooks for integrating with other plugins
+		registerHooks();
 
-        // Initialise all the hooks
-        hooks.forEach(hook -> hook.init(this));
+		// Initialise all the hooks
+		hooks.forEach(hook -> hook.init(this));
 
-        // Set up the command handler
-        getCommand("OldCombatMechanics").setExecutor(new OCMCommandHandler(this));
-        // Set up command tab completer
-        getCommand("OldCombatMechanics").setTabCompleter(new OCMCommandCompleter());
+		// Set up the command handler
+		getCommand("OldCombatMechanics").setExecutor(new OCMCommandHandler(this));
+		// Set up command tab completer
+		getCommand("OldCombatMechanics").setTabCompleter(new OCMCommandCompleter());
 
-        Config.reload();
+		Config.reload();
 
-        // BStats Metrics
-        final Metrics metrics = new Metrics(this, 53);
+		enableListeners.forEach(Runnable::run);
 
-        // Simple bar chart
-        metrics.addCustomChart(
-                new SimpleBarChart(
-                        "enabled_modules",
-                        () -> ModuleLoader.getModules().stream()
-                                .filter(OCMModule::isEnabled)
-                                .collect(Collectors.toMap(OCMModule::toString, module -> 1))
-                )
-        );
+		// Properly handle Plugman load/unload.
+		final List<RegisteredListener> joinListeners = Arrays.stream(PlayerJoinEvent.getHandlerList().getRegisteredListeners())
+				.filter(registeredListener -> registeredListener.getPlugin().equals(this))
+				.collect(Collectors.toList());
 
-        // Pie chart of enabled/disabled for each module
-        ModuleLoader.getModules().forEach(module -> metrics.addCustomChart(
-                new SimplePie(module.getModuleName() + "_pie",
-                        () -> module.isEnabled() ? "enabled" : "disabled"
-                )));
+		Bukkit.getOnlinePlayers().forEach(player -> {
+			final PlayerJoinEvent event = new PlayerJoinEvent(player, "");
 
-        enableListeners.forEach(Runnable::run);
+			// Trick all the modules into thinking the player just joined in case the plugin was loaded with Plugman.
+			// This way attack speeds, item modifications, etc. will be applied immediately instead of after a re-log.
+			joinListeners.forEach(registeredListener -> {
+				try {
+					registeredListener.callEvent(event);
+				} catch (EventException e) {
+					e.printStackTrace();
+				}
+			});
+		});
 
-        // Properly handle Plugman load/unload.
-        final List<RegisteredListener> joinListeners = Arrays.stream(PlayerJoinEvent.getHandlerList().getRegisteredListeners())
-                .filter(registeredListener -> registeredListener.getPlugin().equals(this))
-                .collect(Collectors.toList());
+		// Logging to console the enabling of OCM
+		final PluginDescriptionFile pdfFile = this.getDescription();
+		logger.info(pdfFile.getName() + " v" + pdfFile.getVersion() + " has been enabled");
 
-        Bukkit.getOnlinePlayers().forEach(player -> {
-            final PlayerJoinEvent event = new PlayerJoinEvent(player, "");
+	}
 
-            // Trick all the modules into thinking the player just joined in case the plugin was loaded with Plugman.
-            // This way attack speeds, item modifications, etc. will be applied immediately instead of after a re-log.
-            joinListeners.forEach(registeredListener -> {
-                try {
-                    registeredListener.callEvent(event);
-                } catch (EventException e) {
-                    e.printStackTrace();
-                }
-            });
-        });
+	@Override
+	public void onDisable() {
+		final PluginDescriptionFile pdfFile = this.getDescription();
 
-        // Logging to console the enabling of OCM
-        final PluginDescriptionFile pdfFile = this.getDescription();
-        logger.info(pdfFile.getName() + " v" + pdfFile.getVersion() + " has been enabled");
+		disableListeners.forEach(Runnable::run);
 
-        if (Config.moduleEnabled("update-checker"))
-            Bukkit.getScheduler().runTaskLaterAsynchronously(this,
-                    () -> new UpdateChecker(this).performUpdate(), 20L);
+		// Properly handle Plugman load/unload.
+		final List<RegisteredListener> quitListeners = Arrays.stream(PlayerQuitEvent.getHandlerList().getRegisteredListeners())
+				.filter(registeredListener -> registeredListener.getPlugin().equals(this))
+				.collect(Collectors.toList());
 
-        metrics.addCustomChart(new SimplePie("auto_update_pie",
-                () -> Config.moduleSettingEnabled("update-checker",
-                        "auto-update") ? "enabled" : "disabled"));
+		// Trick all the modules into thinking the player just quit in case the plugin was unloaded with Plugman.
+		// This way attack speeds, item modifications, etc. will be restored immediately instead of after a disconnect.
+		Bukkit.getOnlinePlayers().forEach(player -> {
+			final PlayerQuitEvent event = new PlayerQuitEvent(player, "");
 
-    }
+			quitListeners.forEach(registeredListener -> {
+				try {
+					registeredListener.callEvent(event);
+				} catch (EventException e) {
+					e.printStackTrace();
+				}
+			});
+		});
 
-    @Override
-    public void onDisable() {
-        final PluginDescriptionFile pdfFile = this.getDescription();
+		PlayerStorage.instantSave();
 
-        disableListeners.forEach(Runnable::run);
+		// Logging to console the disabling of OCM
+		logger.info(pdfFile.getName() + " v" + pdfFile.getVersion() + " has been disabled");
+	}
 
-        // Properly handle Plugman load/unload.
-        final List<RegisteredListener> quitListeners = Arrays.stream(PlayerQuitEvent.getHandlerList().getRegisteredListeners())
-                .filter(registeredListener -> registeredListener.getPlugin().equals(this))
-                .collect(Collectors.toList());
+	private void registerModules() {
 
-        // Trick all the modules into thinking the player just quit in case the plugin was unloaded with Plugman.
-        // This way attack speeds, item modifications, etc. will be restored immediately instead of after a disconnect.
-        Bukkit.getOnlinePlayers().forEach(player -> {
-            final PlayerQuitEvent event = new PlayerQuitEvent(player, "");
+		// Modeset listener, for when player joins or changes world
+		ModuleLoader.addModule(new ModesetListener(this));
 
-            quitListeners.forEach(registeredListener -> {
-                try {
-                    registeredListener.callEvent(event);
-                } catch (EventException e) {
-                    e.printStackTrace();
-                }
-            });
-        });
+		// Module listeners
+		ModuleLoader.addModule(new ModuleAttackCooldown(this));
 
-        PlayerStorage.instantSave();
+		// If below 1.16, we need to keep track of player attack cooldown ourselves
+		if (Reflector.getMethod(HumanEntity.class, "getAttackCooldown", 0) == null) {
+			ModuleLoader.addModule(new AttackCooldownTracker(this));
+		}
 
-        // Logging to console the disabling of OCM
-        logger.info(pdfFile.getName() + " v" + pdfFile.getVersion() + " has been disabled");
-    }
+		//Listeners registered later with same priority are called later
 
-    private void registerModules() {
-        // Update Checker (also a module, so we can use the dynamic registering/unregistering)
-        ModuleLoader.addModule(new ModuleUpdateChecker(this));
+		//These four listen to OCMEntityDamageByEntityEvent:
+		ModuleLoader.addModule(new ModuleOldToolDamage(this));
+		ModuleLoader.addModule(new ModuleSwordSweep(this));
+		ModuleLoader.addModule(new ModuleOldPotionEffects(this));
+		ModuleLoader.addModule(new ModuleOldCriticalHits(this));
 
-        // Modeset listener, for when player joins or changes world
-        ModuleLoader.addModule(new ModesetListener(this));
+		//Next block are all on LOWEST priority, so will be called in the following order:
+		// Damage order: base -> potion effects -> critical hit -> enchantments
+		// Defence order: overdamage -> blocking -> armour -> resistance -> armour enchs -> absorption
+		//EntityDamageByEntityListener calls OCMEntityDamageByEntityEvent, see modules above
+		// For everything from base to overdamage
+		ModuleLoader.addModule(new EntityDamageByEntityListener(this));
+		// ModuleSwordBlocking to calculate blocking
+		ModuleLoader.addModule(new ModuleShieldDamageReduction(this));
+		// OldArmourStrength for armour -> resistance -> armour enchs -> absorption
+		ModuleLoader.addModule(new ModuleOldArmourStrength(this));
 
-        // Module listeners
-        ModuleLoader.addModule(new ModuleAttackCooldown(this));
+		ModuleLoader.addModule(new ModuleSwordBlocking(this));
+		ModuleLoader.addModule(new ModuleOldArmourDurability(this));
 
-        // If below 1.16, we need to keep track of player attack cooldown ourselves
-        if (Reflector.getMethod(HumanEntity.class, "getAttackCooldown", 0) == null) {
-            ModuleLoader.addModule(new AttackCooldownTracker(this));
-        }
+		ModuleLoader.addModule(new ModuleGoldenApple(this));
+		ModuleLoader.addModule(new ModuleFishingKnockback(this));
+		ModuleLoader.addModule(new ModulePlayerKnockback(this));
+		ModuleLoader.addModule(new ModulePlayerRegen(this));
 
-        //Listeners registered later with same priority are called later
+		ModuleLoader.addModule(new ModuleDisableCrafting(this));
+		ModuleLoader.addModule(new ModuleDisableOffHand(this));
+		ModuleLoader.addModule(new ModuleOldBrewingStand(this));
+		ModuleLoader.addModule(new ModuleDisableElytra(this));
+		ModuleLoader.addModule(new ModuleDisableProjectileRandomness(this));
+		ModuleLoader.addModule(new ModuleDisableBowBoost(this));
+		ModuleLoader.addModule(new ModuleProjectileKnockback(this));
+		ModuleLoader.addModule(new ModuleNoLapisEnchantments(this));
+		ModuleLoader.addModule(new ModuleDisableEnderpearlCooldown(this));
+		ModuleLoader.addModule(new ModuleChorusFruit(this));
 
-        //These four listen to OCMEntityDamageByEntityEvent:
-        ModuleLoader.addModule(new ModuleOldToolDamage(this));
-        ModuleLoader.addModule(new ModuleSwordSweep(this));
-        ModuleLoader.addModule(new ModuleOldPotionEffects(this));
-        ModuleLoader.addModule(new ModuleOldCriticalHits(this));
+		ModuleLoader.addModule(new ModuleOldBurnDelay(this));
+		ModuleLoader.addModule(new ModuleAttackFrequency(this));
+		ModuleLoader.addModule(new ModuleFishingRodVelocity(this));
 
-        //Next block are all on LOWEST priority, so will be called in the following order:
-        // Damage order: base -> potion effects -> critical hit -> enchantments
-        // Defence order: overdamage -> blocking -> armour -> resistance -> armour enchs -> absorption
-        //EntityDamageByEntityListener calls OCMEntityDamageByEntityEvent, see modules above
-        // For everything from base to overdamage
-        ModuleLoader.addModule(new EntityDamageByEntityListener(this));
-        // ModuleSwordBlocking to calculate blocking
-        ModuleLoader.addModule(new ModuleShieldDamageReduction(this));
-        // OldArmourStrength for armour -> resistance -> armour enchs -> absorption
-        ModuleLoader.addModule(new ModuleOldArmourStrength(this));
+		// These modules require ProtocolLib
+		if (protocolManager != null) {
+			ModuleLoader.addModule(new ModuleAttackSounds(this));
+			ModuleLoader.addModule(new ModuleSwordSweepParticles(this));
+		} else {
+			Messenger.warn("No ProtocolLib detected, attack-sounds and sword-sweep-particles modules will be disabled");
+		}
+	}
 
-        ModuleLoader.addModule(new ModuleSwordBlocking(this));
-        ModuleLoader.addModule(new ModuleOldArmourDurability(this));
+	private void registerHooks() {
+		if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI"))
+			hooks.add(new PlaceholderAPIHook());
+	}
 
-        ModuleLoader.addModule(new ModuleGoldenApple(this));
-        ModuleLoader.addModule(new ModuleFishingKnockback(this));
-        ModuleLoader.addModule(new ModulePlayerKnockback(this));
-        ModuleLoader.addModule(new ModulePlayerRegen(this));
+	public void upgradeConfig() {
+		CH.upgradeConfig();
+	}
 
-        ModuleLoader.addModule(new ModuleDisableCrafting(this));
-        ModuleLoader.addModule(new ModuleDisableOffHand(this));
-        ModuleLoader.addModule(new ModuleOldBrewingStand(this));
-        ModuleLoader.addModule(new ModuleDisableElytra(this));
-        ModuleLoader.addModule(new ModuleDisableProjectileRandomness(this));
-        ModuleLoader.addModule(new ModuleDisableBowBoost(this));
-        ModuleLoader.addModule(new ModuleProjectileKnockback(this));
-        ModuleLoader.addModule(new ModuleNoLapisEnchantments(this));
-        ModuleLoader.addModule(new ModuleDisableEnderpearlCooldown(this));
-        ModuleLoader.addModule(new ModuleChorusFruit(this));
+	public boolean doesConfigExist() {
+		return CH.doesConfigExist();
+	}
 
-        ModuleLoader.addModule(new ModuleOldBurnDelay(this));
-        ModuleLoader.addModule(new ModuleAttackFrequency(this));
-        ModuleLoader.addModule(new ModuleFishingRodVelocity(this));
+	/**
+	 * Registers a runnable to run when the plugin gets disabled.
+	 *
+	 * @param action the {@link Runnable} to run when the plugin gets disabled
+	 */
+	public void addDisableListener(Runnable action) {
+		disableListeners.add(action);
+	}
 
-        // These modules require ProtocolLib
-        if (protocolManager != null) {
-            ModuleLoader.addModule(new ModuleAttackSounds(this));
-            ModuleLoader.addModule(new ModuleSwordSweepParticles(this));
-        } else {
-            Messenger.warn("No ProtocolLib detected, attack-sounds and sword-sweep-particles modules will be disabled");
-        }
-    }
+	/**
+	 * Registers a runnable to run when the plugin gets enabled.
+	 *
+	 * @param action the {@link Runnable} to run when the plugin gets enabled
+	 */
+	public void addEnableListener(Runnable action) {
+		enableListeners.add(action);
+	}
 
-    private void registerHooks() {
-        if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI"))
-            hooks.add(new PlaceholderAPIHook());
-    }
+	/**
+	 * Get the plugin's JAR file
+	 *
+	 * @return The File object corresponding to this plugin
+	 */
+	@NotNull
+	@Override
+	public File getFile() {
+		return super.getFile();
+	}
 
-    public void upgradeConfig() {
-        CH.upgradeConfig();
-    }
+	public static OCMMain getInstance() {
+		return INSTANCE;
+	}
 
-    public boolean doesConfigExist() {
-        return CH.doesConfigExist();
-    }
+	public static String getVersion() {
+		return INSTANCE.getDescription().getVersion();
+	}
 
-    /**
-     * Registers a runnable to run when the plugin gets disabled.
-     *
-     * @param action the {@link Runnable} to run when the plugin gets disabled
-     */
-    public void addDisableListener(Runnable action) {
-        disableListeners.add(action);
-    }
-
-    /**
-     * Registers a runnable to run when the plugin gets enabled.
-     *
-     * @param action the {@link Runnable} to run when the plugin gets enabled
-     */
-    public void addEnableListener(Runnable action) {
-        enableListeners.add(action);
-    }
-
-    /**
-     * Get the plugin's JAR file
-     *
-     * @return The File object corresponding to this plugin
-     */
-    @NotNull
-    @Override
-    public File getFile() {
-        return super.getFile();
-    }
-
-    public static OCMMain getInstance() {
-        return INSTANCE;
-    }
-
-    public static String getVersion() {
-        return INSTANCE.getDescription().getVersion();
-    }
-
-    public ProtocolManager getProtocolManager() {
-        return protocolManager;
-    }
+	public ProtocolManager getProtocolManager() {
+		return protocolManager;
+	}
 }

@@ -87,4 +87,5 @@ public class ModulePlayerRegen extends OCMModule {
     public void onPlayerQuit(PlayerQuitEvent e) {
         healTimes.remove(e.getPlayer().getUniqueId());
     }
+
 }

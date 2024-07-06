@@ -39,9 +39,9 @@ worlds:
   # If player has no modeset when moving worlds they'll be assigned first mode in list,
   # unless the mode from the world they are coming from is also available in the new world.
   # Worlds not specified below will have all modesets available.
-  world: [ "old", "new" ]
-  world_nether: [ "old", "new" ]
-  world_the_end: [ "old", "new" ]
+  world: [ "old" ]
+  world_nether: [ "old" ]
+  world_the_end: [ "old" ]
   # old_world: ["old"]
   # brave_new_world: ["new"]
 
@@ -49,7 +49,7 @@ mode-messages:
   # Messages used when changing player mode
   # To disable any message, leave the corresponding string empty (e.g., mode-status: "").
   # This applies to all messages in the configuration.
-  mode-status: "&bYour current modeset is: &7%s"
+  mode-status: ""
   message-usage: "&eYou can use &c/ocm mode <modeset> [player] &eto change modeset"
   invalid-modeset: "&cPlease specify a valid modeset!"
   invalid-player: "&cPlease specify a valid player!"
@@ -198,7 +198,7 @@ disable-sword-sweep:
 disable-sword-sweep-particles:
   # This is to disable the sword sweep attack particles
   # Requires ProtocolLib
-  enabled: false
+  enabled: true
 
 # ########################
 # KNOCKBACK
@@ -215,7 +215,7 @@ old-player-knockback:
   # knockback-extra-vertical: 0.085
   #
   # Minigame servers use higher vertical knockback and lower horizontal knockback, exact values are unknown.
-  enabled: true
+  enabled: false
   # Horizontal knockback is reduced by 40% for every successful attack by the player, with no limit
   # Increase to make clicking more important, decrease to make it less important
   knockback-horizontal: 0.4
@@ -456,7 +456,7 @@ disable-crafting:
     - shield
   # Show the user a message if they try to craft a blacklisted item
   showMessage: true
-  message: "&cYou cannot craft that item!"
+  message: "&cERROR: You cannot craft that item! &6To block, simply use your sword like in Minecraft 1.8."
 
 disable-offhand:
   # Disable the usage of the offhand
@@ -466,9 +466,9 @@ disable-offhand:
   whitelist: true
   # List of items that should be allowed/blocked
   # Example: [diamond_sword,BOW]
-  items: [ ]
+  items: [DRAGON_EGG,END_ROD,REDSTONE_TORCH,SOUL_TORCH,TORCH,APPLE,MUSHROOM_STEW,BREAD,PORKCHOP,COOKED_PORKCHOP,ENCHANTED_GOLDEN_APPLE,GOLDEN_APPLE,COD,COOKED_COD,SALMON,COOKED_SALMON,TROPICAL_FISH,PUFFERFISH,CAKE,COOKIE,MELON_SLICE,DRIED_KELP,BEEF,COOKED_BEEF,CHICKEN,COOKED_CHICKEN,ROTTEN_FLESH,CARROT,CARROT_ON_A_STICK,GOLDEN_CARROT,BAKED_POTATO,POISONOUS_POTATO,POTATO,PUMPKIN_PIE,COOKED_RABBIT,RABBIT,RABBIT_STEW,COOKED_MUTTON,MUTTON,CHORUS_FRUIT,BEETROOT,BEETROOT_SOUP,SUSPICIOUS_STEW,SWEET_BERRIES,HONEY_BOTTLE,GLOW_BERRIES,MILK_BUCKET]
   # Message to send user when denied. Set to '' to disable
-  denied-message: "&cOff-hand is disabled"
+  denied-message: "&7[&2True&4OG&7] &CERROR: &6That item is not allowed in the offhand. This helps to even the playing field for 1.8 players."
 
 old-brewing-stand:
   # Automatically refuels brewing stands
@@ -516,7 +516,7 @@ chorus-fruit:
 
 old-burn-delay:
   # This makes it so entities will immediately start to burn when entering fire
-  enabled: false
+  enabled: true
   # How long, in ticks, entities should be on fire for after not being in direct contact anymore
   fire-ticks: 120
 
@@ -541,31 +541,30 @@ disable-bow-boost:
 disable-attack-sounds:
   # Disables attack sounds that were added with 1.9+
   # Requires ProtocolLib
-  enabled: false
+  enabled: true
   # The sounds that will be blocked by this module
   blocked-sound-names:
     - "ENTITY_PLAYER_ATTACK_STRONG"
     - "ENTITY_PLAYER_ATTACK_SWEEP"
     - "ENTITY_PLAYER_ATTACK_NODAMAGE"
     - "ENTITY_PLAYER_ATTACK_KNOCKBACK"
-    - "ENTITY_PLAYER_ATTACK_CRIT"
     - "ENTITY_PLAYER_ATTACK_WEAK"
 
 # ########################
 # SPECIAL SETTINGS BELOW #
 # ########################
 
-message-prefix: "&6[OCM]&r"
+message-prefix: "&8[&2OCM&4-OG&8]&r"
 
 # This is to toggle the update checker
 update-checker:
   # Whether to check for updates and notify players with the oldcombatmechanics.notify permission
-  enabled: true
+  enabled: false
   # Whether to automatically download an update of the plugin
   # The update is applied on the next restart/reload of the server
   # Auto update is disabled if Spigot version is below 1.18.1 and force-below-1-18-1-config-upgrade is false
   # This is to prevent accidentally resetting the config
-  auto-update: true
+  auto-update: false
 
 # Whether to force config upgrade even in Spigot versions below 1.18.1
 # This is not advised, as all the comments would be removed
