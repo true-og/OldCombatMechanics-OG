@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 import java.lang.reflect.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -22,14 +23,19 @@ public class Reflector {
 
     static {
         try {
-            version = Bukkit.getServer().getClass().getName().split("\\.")[3];
-            final String[] splitVersion = getVersion().replaceAll("[^\\d_]", "").split("_");
+            // Split on the "-" to just get the version information
+            version = Bukkit.getServer().getBukkitVersion().split("-")[0];
+            final String[] splitVersion = version.split("\\.");
+
             majorVersion = Integer.parseInt(splitVersion[0]);
             minorVersion = Integer.parseInt(splitVersion[1]);
-            patchVersion = splitVersion.length < 3 ? 0 : Integer.parseInt(splitVersion[2]);
+            if(splitVersion.length > 2) {
+                patchVersion = Integer.parseInt(splitVersion[2]);
+            } else {
+                patchVersion = 0;
+            }
         } catch (Exception e) {
-            System.err.println("Failed to load Reflector");
-            e.printStackTrace();
+            System.err.println("Failed to load Reflector: " + e.getMessage());
         }
     }
 
@@ -45,7 +51,7 @@ public class Reflector {
      * @param patch the target patch version. 0 for all
      * @return true if the server version is newer or equal to the one provided
      */
-    public static boolean versionIsNewerOrEqualAs(int major, int minor, int patch) {
+    public static boolean versionIsNewerOrEqualTo(int major, int minor, int patch) {
         if (getMajorVersion() < major) return false;
         if (getMinorVersion() < minor) return false;
         return getPatchVersion() >= patch;
@@ -163,7 +169,9 @@ public class Reflector {
 
     public static Field getField(Class<?> clazz, String fieldName) {
         try {
-            return clazz.getDeclaredField(fieldName);
+            Field field = clazz.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field;
         } catch (NoSuchFieldException e) {
             throw new RuntimeException(e);
         }
@@ -179,20 +187,43 @@ public class Reflector {
         throw new RuntimeException("Field with type " + simpleClassName + " not found");
     }
 
-    public static Field getInaccessibleField(Class<?> clazz, String fieldName) {
-        Field field = getField(clazz, fieldName);
-        field.setAccessible(true);
-        return field;
-    }
-
-    public static Object getDeclaredFieldValueByType(Object object, String simpleClassName) throws Exception {
-        for (Field declaredField : object.getClass().getDeclaredFields()) {
-            if (declaredField.getType().getSimpleName().equals(simpleClassName)) {
-                declaredField.setAccessible(true);
-                return declaredField.get(object);
+    public static Field getMapFieldWithTypes(Class<?> clazz, Class<?> keyType, Class<?> valueType) {
+        for (Field field : clazz.getDeclaredFields()) {
+            // Check if the field is a Map
+            if (Map.class.isAssignableFrom(field.getType())) {
+                // Get the generic type of the field
+                final Type genericType = field.getGenericType();
+                if (genericType instanceof ParameterizedType) {
+                    final ParameterizedType parameterizedType = (ParameterizedType) genericType;
+                    final Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+                    // Check if the map's key and value types match the specified classes
+                    if (actualTypeArguments.length == 2 &&
+                            actualTypeArguments[0].equals(keyType) &&
+                            actualTypeArguments[1].equals(valueType)) {
+                        field.setAccessible(true);
+                        return field;
+                    }
+                }
             }
         }
-        throw new NoSuchFieldException("Couldn't find field with type " + simpleClassName + " in " + object.getClass());
+        throw new RuntimeException("Map field with key type " + keyType.getSimpleName() +
+                " and value type " + valueType.getSimpleName() + " not found");
+    }
+
+    public static Object getFieldValueByType(Object object, String simpleClassName) throws Exception {
+        Stream<Field> publicFields = Stream.of(object.getClass().getFields());
+        Stream<Field> declaredFields = Stream.of(object.getClass().getDeclaredFields());
+        Stream<Field> allFields = Stream.concat(publicFields, declaredFields);
+
+        // Find the first field that matches the type name
+        Field matchingField = allFields
+                .filter(declaredField -> declaredField.getType().getSimpleName().equals(simpleClassName))
+                .findFirst()
+                .orElseThrow(() -> new NoSuchFieldException("Couldn't find field with type " + simpleClassName + " in " + object.getClass()));
+
+        // Make the field accessible and return its value
+        matchingField.setAccessible(true);
+        return matchingField.get(object);
     }
 
     public static Object getFieldValue(Field field, Object handle) {

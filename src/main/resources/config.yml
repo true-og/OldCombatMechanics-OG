@@ -10,118 +10,73 @@
 #                                                                           #
 # ###########################################################################
 
-# When this is set to 'true', the 'worlds' section under each module config will represent worlds that the feature is disabled in
-# When this is set to 'false', the 'worlds' section under each module config will represent worlds that the feature is enabled in
-worlds-is-blacklist: true
+modesets:
+  # Modesets are lists of modules that are enabled for a player in that mode.
+  # Modules not listed in any modeset are assumed to always be available.
+  # You can create, remove, and rename as many modesets as you like by modifying the list below.
+  # When in PvP, the modeset of the attacker is checked first.
+  # If not PvP, the modeset of the defending entity is checked.
+  # Of course, the module must also be enabled in its own config section.
+  # Sample below has modules enabled for "old" combat modeset and disabled for "new" combat modeset
+  # PlaceholderAPI: %ocm_modeset%
+  old:
+    - "disable-attack-cooldown"
+    - "disable-sword-sweep"
+    - "disable-offhand"
+    - "old-tool-damage"
+    - "sword-blocking"
+    - "shield-damage-reduction"
+    - "old-golden-apples"
+    - "old-player-knockback"
+    - "old-player-regen"
+    - "old-armour-strength"
+    - "old-potion-effects"
+    - "old-critical-hits"
+  new: [ ]
 
-# To use the per-world feature you must specify a list of worlds in square brackets []
-# If empty, will be enabled in all worlds.
-# Otherwise, it acts as whitelist / blacklist (as per the global 'worlds-is-blacklist' setting, see above).
-#
-# --- Example #1: this will enable 'disable-sword-seep' exclusively in 'world', 'survival', and 'creative'
-#
-# worlds-is-blacklist: false
-# disable-sword-sweep:
-#   enabled: true
-#   worlds: [world,survival,creative]
-#
-# --- Example #2: this will enable 'disable-sword-seep' in all worlds EXCEPT 'world_nether' & 'world_the_end'
-#
-# worlds-is-blacklist: true
-# disable-sword-sweep:
-#   enabled: true
-#   worlds: [world_nether,world_the_end]
+worlds:
+  # These are the modesets available in each world.
+  # If player has no modeset when moving worlds they'll be assigned first mode in list,
+  # unless the mode from the world they are coming from is also available in the new world.
+  # Worlds not specified below will have all modesets available.
+  world: [ "old" ]
+  world_nether: [ "old" ]
+  world_the_end: [ "old" ]
+  # old_world: ["old"]
+  # brave_new_world: ["new"]
+
+mode-messages:
+  # Messages used when changing player mode
+  # To disable any message, leave the corresponding string empty (e.g., mode-status: "").
+  # This applies to all messages in the configuration.
+  mode-status: ""
+  message-usage: "&eYou can use &c/ocm mode <modeset> [player] &eto change modeset"
+  invalid-modeset: "&cPlease specify a valid modeset!"
+  invalid-player: "&cPlease specify a valid player!"
+  mode-set: "&2Set modeset to &7%s"
+
+# ########################
+# COMBAT MODULE SETTINGS
+# ########################
 
 disable-attack-cooldown:
   # This is to disable the attack cooldown
   enabled: true
-  worlds: []
   # What to set the attack speed to. Default for 1.9 is 4, at least 40 is needed for no cooldown.
   generic-attack-speed: 40
-  message-enabled: "&aAttack cooldown enabled for %player%"
-  message-disabled: "&cAttack cooldown disabled for %player%"
-  message-usage: "Usage: &7/ocm toggle [player] [on/off]"
 
-disable-player-collisions:
-  # This is to disable player collisions
-  # This is now compatible with scoreboard and tablist-editing plugins
-  enabled: false
-  worlds: []
-
-disable-sword-sweep:
-  # This is to disable the sword sweep attack
-  # Particle effect is also now removed
+attack-frequency:
+  # Allows changing the player invulnerability between hits
   enabled: true
-  worlds: []
-
-disable-attack-sounds:
-  enabled: true
-  worlds: []
-  # The sounds that will be blocked by this module
-  blocked-sounds:
-    - "minecraft:entity.player.attack.strong"
-    - "minecraft:entity.player.attack.sweep"
-    - "minecraft:entity.player.attack.nodamage"
-    - "minecraft:entity.player.attack.weak"
-
-disable-crafting:
-  # Disable the crafting of specified items
-  enabled: true
-  worlds: []
-  # List of denied items
-  denied:
-    - shield
-  # Show the user a message if they try to craft a blacklisted item
-  showMessage: true
-  message: "&cERROR: You cannot craft that item due to the 1.8 combat system! &6Shields
-    will automatically deploy upon a right click. To get the old 1.7 blocking animation
-    back, use the three mods Shield Disruptor, Sword Blocking, and Nostalgic Tweaks
-    together."
-
-disable-offhand:
-  # Disable the usage of the offhand
-  # Won't affect sword-blocking module
-  enabled: true
-  worlds: []
-  # Whether the following list allows items or blocks them
-  whitelist: true
-  # List of items that should be allowed/blocked
-  # Example: [diamond_sword,BOW]
-  items: [DRAGON_EGG,END_ROD,REDSTONE_TORCH,SOUL_TORCH,TORCH,APPLE,MUSHROOM_STEW,BREAD,PORKCHOP,COOKED_PORKCHOP,ENCHANTED_GOLDEN_APPLE,GOLDEN_APPLE,COD,COOKED_COD,SALMON,COOKED_SALMON,TROPICAL_FISH,PUFFERFISH,CAKE,COOKIE,MELON_SLICE,DRIED_KELP,BEEF,COOKED_BEEF,CHICKEN,COOKED_CHICKEN,ROTTEN_FLESH,CARROT,CARROT_ON_A_STICK,GOLDEN_CARROT,BAKED_POTATO,POISONOUS_POTATO,POTATO,PUMPKIN_PIE,COOKED_RABBIT,RABBIT,RABBIT_STEW,COOKED_MUTTON,MUTTON,CHORUS_FRUIT,BEETROOT,BEETROOT_SOUP,SUSPICIOUS_STEW,SWEET_BERRIES,HONEY_BOTTLE,GLOW_BERRIES,MILK_BUCKET]
-
-old-brewing-stand:
-  # Automatically refuels brewing stands
-  enabled: true
-  worlds: []
-
-no-lapis-enchantments:
-  # Automatically adds lapis to enchantment tables upon opening
-  enabled: false
-  worlds: []
-  # Whether to only allow this for players with oldcombatmechanics.nolapis permission
-  usePermission: false
-
-disable-elytra:
-  # Do not allow players to wear elytra
-  enabled: false
-  worlds: []
-
-disable-enderpearl-cooldown:
-  # Disables enderpearl cooldown
-  enabled: true
-  worlds: []
-  # The cooldown, in seconds
-  cooldown: 0
-  # Show the user a message if they try to use an enderpearl and the cooldown has not expired yet
-  showMessage: false
-  message: "&cERROR: You must wait &7%ds&c before using an enderpearl again!"
+  # The hit delay to apply. Default for 1.9+ is 20 ticks (1 second)
+  playerDelay: 18
+  mobDelay: 16
 
 old-tool-damage:
   # This is to set the tool damage as in pre-1.9
   # IMPORTANT: Also enable disable-sword-sweep module or sweeps will have the damage value of the weapon in hand
-  # NOTE: this will modify the damage, however on the item tooltip it will still show the 1.9+ damage
+  # NOTE: this will modify the damage, however the item tooltip will still show the 1.9+ damage
   enabled: true
-  worlds: []
   # Use old sharpness calculations, i.e. each level adds 1.25 damage
   # In 1.9+, sharpness adds 1 + 0.5 * level damage
   old-sharpness: true
@@ -164,26 +119,55 @@ old-tool-damage:
     DIAMOND_HOE: 1
     NETHERITE_HOE: 1
 
-sword-blocking:
-  # This is to allow players to block with swords again, by getting a shield while they hold right click with a sword
+old-critical-hits:
+  # Makes critical hits work like in 1.8
+  # With a critical hit, the damage will be multiplied by 1.5
+  # In 1.9, the user must also not be sprinting for it to be a crit
   enabled: true
-  worlds: []
-  # How often, in ticks, OCM should check if the player is still blocking with a shield, and remove it if not
-  # If this is too fast the player will have their shield disappear before they're able to block again causing a slight delay
-  # If this is too slow players will have a shield in their hand well after they've stopped blocking
-  # 20 ticks = 1 second
-  restoreDelay: 40
-  # List of items that holding in the offhand while right-clicking with a sword doesn't trigger blocking e.g. bow
-  noBlockingItems: []
-  # Whether the above list should act as a blacklist (i.e. only items listed stop the blocking mechanic)
-  blacklist: true
-  # Whether to require players to have oldcombatmechanics.swordblock permission to block with a sword
-  use-permission: false
+  world: [ ]
+  # What the damage, after applying potions effects, is multiplied by
+  multiplier: 1.5
+  # Whether to allow crits while sprinting. 1.8: true, 1.9: false
+  allow-sprinting: true
+
+old-player-regen:
+  # This is to make players' regeneration act mostly like it did in pre-1.9
+  # Based on https://minecraft.gamepedia.com/Hunger?oldid=948685
+  enabled: true
+  # How often a player should regenerate health, in milliseconds (In 1.8: 4 seconds)
+  # The foodTickerTimer might not be perfectly accurate so we give it ~10ms of leeway
+  interval: 3990
+  # How many half-hearts the player should heal by, every seconds specified above
+  amount: 1
+  # How much exhaustion the player should get from healing. In 1.8: 3    In 1.9: 4    In 1.11: 6
+  # If, after adding this, Minecraft finds the value is above 4, it subtracts 4
+  # and either reduces saturation or, if saturation is 0, reduces food level by 1 (1/2 a stick)
+  exhaustion: 3
+
+# ########################
+# ARMOUR
+# ########################
+
+old-armour-strength:
+  # This is to make armour calculations like in 1.8
+  # Based on this: https://minecraft.gamepedia.com/index.php?title=Armor&oldid=909187
+  enabled: true
+  # Whether to introduce randomness in the calculation, as in 1.8
+  randomness: true
+
+old-armour-durability:
+  # This makes armour take a constant amount of durability damage (except for explosions)
+  enabled: true
+  # By how much to reduce durability every attack. 1.8 default is 1
+  reduction: 1
+
+# ########################
+# SWEEP, SHIELDS & BLOCKING
+# ########################
 
 shield-damage-reduction:
   # This module allows changing the damage reduction behaviour of shields
   enabled: true
-  worlds: []
   # How much damage blocking should reduce
   # Firstly, amount is subtracted, then value is multiplied by percentage
   # 1.8: (damage - 1) * 50%    1.9: damage * 33%   1.11: damage * 0%
@@ -195,18 +179,109 @@ shield-damage-reduction:
   projectileDamageReductionAmount: 1
   projectileDamageReductionPercentage: 50
 
+sword-blocking:
+  # This is to allow players to block with swords again, by getting a shield while they hold right click with a sword
+  enabled: true
+  # How often, in ticks, OCM should check if the player is still blocking with a shield, and remove it if not
+  # If this is too fast, the player will have their shield disappear before they're able to block again causing a slight delay
+  # If this is too slow, players will have a shield in their hand well after they've stopped blocking
+  # 20 ticks = 1 second
+  restoreDelay: 40
+  # Whether to require players to have oldcombatmechanics.swordblock permission to block with a sword
+  use-permission: false
+
+disable-sword-sweep:
+  # This is to disable the sword sweep attack
+  # With ProtocolLib, particle effect is also removed
+  enabled: true
+
+disable-sword-sweep-particles:
+  # This is to disable the sword sweep attack particles
+  # Requires ProtocolLib
+  enabled: true
+
+# ########################
+# KNOCKBACK
+# ########################
+
+old-player-knockback:
+  # This is to change knockback players receive from attacks.  Default values are as in 1.8.
+  #
+  # Practice servers tend to use lower knockback, for example:
+  # knockback-horizontal: 0.35
+  # knockback-vertical: 0.35
+  # knockback-vertical-limit: 0.4
+  # knockback-extra-horizontal: 0.425
+  # knockback-extra-vertical: 0.085
+  #
+  # Minigame servers use higher vertical knockback and lower horizontal knockback, exact values are unknown.
+  enabled: false
+  # Horizontal knockback is reduced by 40% for every successful attack by the player, with no limit
+  # Increase to make clicking more important, decrease to make it less important
+  knockback-horizontal: 0.4
+  # Vertical knockback is not reduced by clicking faster
+  # Increase to make clicking less important, decrease to make clicking more important
+  knockback-vertical: 0.4
+  # Vertical knockback limit is applied after base vertical knockback
+  # This limit can be exceeded by sprint hitting or knockback enchantments, from the extra vertical knockback
+  knockback-vertical-limit: 0.4
+  # Extra horizontal knockback is applied for each level of knockback enchant, and for sprinting
+  # Increase to make sprint resetting (w-tapping) more important, decrease to make it less important
+  # Increase to make clicking more important, decrease to make clicking less important
+  knockback-extra-horizontal: 0.5
+  # Extra vertical knockback is applied for each level of knockback enchant, and for sprinting
+  # Increase to make sprint resetting (w-tapping) more important, decrease to make it less important
+  # Increase to make clicking less important, decrease to make clicking more important
+  knockback-extra-vertical: 0.1
+  # Should knockback resistance be enabled? (e.g. netherite armour knockback resistance)
+  enable-knockback-resistance: false
+
+old-fishing-knockback:
+  # This is to make the knockback of players when they get hit by a fishing bobber the same as it was in pre-1.9
+  enabled: true
+  # This is the damage done by the fishing rod attack
+  damage: 0.0001
+  # This is to cancel dragging in the entity attached to the fishing rod when reeling in, like in 1.8
+  # Options: all, players, mobs, none. players allows compatibility with WorldGuard pvp-deny regions
+  cancelDraggingIn: players
+  # Whether to also give knockback on non-player living entities (e.g. mobs)
+  knockbackNonPlayerEntities: false
+  # This is the delay in milliseconds in-between rod damage, so the player hit has time to fall back down
+  hitCooldown: 1000
+
+fishing-rod-velocity:
+  # In 1.9+ fishing rods go 8 blocks instead of 12 blocks
+  # This is due to both gravity and initial launch speed
+  # Set to true to revert back to the old calculations and gravity
+  enabled: true
+
+projectile-knockback:
+  # This adds knockback and/or damage to players when they get hit by snowballs, eggs & enderpearls
+  # This has been a Bukkit bug for so long people thought it was vanilla when it was patched
+  enabled: true
+  # This is the damage done by each projectile
+  damage:
+    snowball: 0.0001
+    egg: 0.0001
+    ender_pearl: 0.0001
+
+# ########################
+# GAPPLES & POTIONS
+# ########################
+
 old-golden-apples:
   # This is to change the behaviour / crafting of golden apples to how it was in pre-1.9
   # WARNING: If on 1.12 or above and you disable this module you must reload the server for the recipe to disappear
   enabled: true
-  worlds: []
   # Cooldown between eating the apples, in seconds
   cooldown:
     # The cooldown for normal golden apples
+    # PlaceholderAPI: %ocm_gapple_cooldown%
     normal: 0
     # Message when user tries to eat golden apple during cooldown. Leave empty to disable.
     message-normal: "&ePlease wait %seconds%s before eating another golden apple."
     # The cooldown for enchanted golden apples
+    # PlaceholderAPI: %ocm_napple_cooldown%
     enchanted: 0
     # Message when user tries to eat enchanted golden apple during cooldown. Leave empty to disable.
     message-enchanted: "&ePlease wait %seconds%s before eating another enchanted golden apple."
@@ -229,270 +304,130 @@ old-golden-apples:
   # Enabling this makes the potion effects gained by eating golden apples
   # and enchanted golden apples the same as it was in pre-1.9
   old-potion-effects: true
-  # Potion effects golden apples should apply
-  # Duration is in ticks (20 ticks = 1 second)
-  # Amplifier is the potion level - 1, so Regeneration IV would be amplifier 3
-  gapple-effects:
+  # Potion effects for golden apples
+  # Duration is in seconds
+  # Amplifier is the potion level-1, so Regeneration IV would be amplifier 3
+  golden-apple-effects:
     regeneration:
-      duration: 100
+      duration: 5
       amplifier: 1
     absorption:
-      duration: 2400
+      duration: 120
       amplifier: 0
-  # Potion effects enchanted golden apples should apply
-  napple-effects:
+  # Potion effects for enchanted golden apples
+  enchanted-golden-apple-effects:
     regeneration:
-      duration: 600
+      duration: 30
       amplifier: 4
-    damage_resistance:
-      duration: 6000
+    resistance:
+      duration: 300
       amplifier: 0
     fire_resistance:
-      duration: 6000
+      duration: 300
       amplifier: 0
     absorption:
-      duration: 2400
+      duration: 120
       amplifier: 0
   # Enable this if you have another plugin which adds a crafting recipe for
   # enchanted golden apples (requires server restart)
   no-conflict-mode: false
 
-old-fishing-knockback:
-  # This is to make the knockback of players when they get hit by a fishing bobber the same as it was in pre-1.9
-  enabled: true
-  worlds: []
-  # This makes OCM check if other plugins are stopping the rod damage and follow their choice
-  # Set to false to always have rod damage
-  checkCancelled: false
-  # This is the damage done by the fishing rod attack
-  damage: 0.0001
-  # Whether the EntityDamageEvent should be used instead of the EntityDamageByEntityEvent
-  # Set to true when using plugins like NCP that check range
-  useEntityDamageEvent: true
-  # This is to cancel dragging in the entity attached to the fishing rod when reeling in, like in 1.8
-  # Options: all, players, mobs, none. players allows compatibility with WorldGuard pvp-deny regions
-  cancelDraggingIn: players
-  # Whether to also give knockback on non-player living entities (e.g. mobs)
-  knockbackNonPlayerEntities: false
-  # This is the delay in milliseconds in-between rod damage, so the player hit has time to fall back down
-  hitCooldown: 1000
-
-fishing-rod-velocity:
-  # In 1.9+ fishing rods go 8 blocks instead of 12 blocks
-  # This is due to both gravity and initial launch speed
-  # Set to true to revert back to the old calculations and gravity
-  enabled: true
-  worlds: []
-
-projectile-knockback:
-  # This adds knockback and/or damage to players when they get hit by snowballs, eggs & enderpearls
-  # This has been a Bukkit bug for so long people thought it was vanilla when it was recently patched
-  enabled: true
-  worlds: []
-  # This is the damage done by each projectile
-  damage:
-    snowball: 0.0001
-    egg: 0.0001
-    ender_pearl: 0.0001
-
-old-player-knockback:
-  # This is to change knockback players receive from attacks.  Default values are as in 1.8.
-  #
-  # Practice servers tend to use lower knockback, for example:
-  # knockback-horizontal: 0.35
-  # knockback-vertical: 0.35
-  # knockback-vertical-limit: 0.4
-  # knockback-extra-horizontal: 0.425
-  # knockback-extra-vertical: 0.085
-  #
-  # Minigame servers use higher vertical knockback and lower horizontal knockback, exact values are unknown.
-  enabled: false
-  worlds: []
-  # Horizontal knockback is reduced by 40% for every successful attack by the player, with no limit
-  # Increase to make clicking more important, decrease to make it less important
-  knockback-horizontal: 0.4
-  # Vertical knockback is not reduced by clicking faster
-  # Increase to make clicking less important, decrease to make clicking more important
-  knockback-vertical: 0.4
-  # Vertical knockback limit is applied after base vertical knockback
-  # This limit can be exceeded by sprint hitting or knockback enchantments, from the extra vertical knockback
-  knockback-vertical-limit: 0.4
-  # Extra horizontal knockback is applied for each level of knockback enchant, and for sprinting
-  # Increase to make sprint resetting (w-tapping) more important, decrease to make it less important
-  # Increase to make clicking more important, decrease to make clicking less important
-  knockback-extra-horizontal: 0.5
-  # Extra vertical knockback is applied for each level of knockback enchant, and for sprinting
-  # Increase to make sprint resetting (w-tapping) more important, decrease to make it less important
-  # Increase to make clicking less important, decrease to make clicking more important
-  knockback-extra-vertical: 0.1
-  # Should knockback resistance be enabled? (e.g. netherite armour knockback resistance)
-  enable-knockback-resistance: false
-
-old-player-regen:
-  # This is to make players' regeneration act mostly like it did in pre-1.9
-  # Based on https://minecraft.gamepedia.com/Hunger?oldid=948685
-  enabled: true
-  worlds: []
-  # How often a player should regenerate health, in milliseconds (In 1.8: 4 seconds)
-  # The foodTickerTimer might not be perfectly accurate so we give it ~10ms of leeway
-  interval: 3990
-  # How many half-hearts the player should heal by, every seconds specified above
-  amount: 1
-  # How much exhaustion the player should get from healing. In 1.8: 3    In 1.9: 4    In 1.11: 6
-  # If, after adding this, Minecraft finds the value is above 4, it subtracts 4
-  # and either reduces saturation or, if saturation is 0, reduces food level by 1 (1/2 a stick)
-  exhaustion: 3
-
-old-armour-strength:
-  # This is to make armour calculations like in 1.8
-  # Based on this: https://minecraft.gamepedia.com/index.php?title=Armor&oldid=909187
-  enabled: true
-  worlds: []
-
-old-armour-durability:
-  # This makes armour take a constant amount of durability damage (except for explosions)
-  enabled: true
-  worlds: []
-  # By how much to reduce durability every attack. 1.8 default is 1
-  reduction: 1
-
-disable-projectile-randomness:
-  # This is to remove projectile randomness while firing arrows with a bow
-  # This is actually a very old feature and has been in the game for quite some time
-  enabled: false
-  worlds: []
-  # This is the threshold between projectiles' (X,Z) values before they're considered the same and straightened
-  # This value is only useful for multishot. The default of 0.1 works at all but extremely shallow angles,
-  # where arrows end up bunched together. Set to 1 if you want multishots to all follow the same path.
-  epsilon: 0.1
-
-disable-bow-boost:
-  # This is to stop players from boosting themselves forward by hitting themselves
-  # while running with a punch II arrow from their bow
-  # This module simply stops them from hitting themselves with arrows entirely
-  enabled: false
-  worlds: []
-
 old-potion-effects:
   # This is to restore the 1.8 potion effects and duration
   enabled: true
-  worlds: []
 
   # DURATION: (in seconds)
   potion-durations:
-    regen: # Regeneration
-      drinkable:
-        base: 45
-        II: 22
-        extended: 120
-      splash:
-        base: 33
-        II: 16
-        extended: 90
+    drinkable:
+      regeneration: 45
+      strong_regeneration: 22
+      long_regeneration: 120
 
-    speed: # Swiftness
-      drinkable:
-        base: 180
-        II: 90
-        extended: 480
-      splash:
-        base: 135
-        II: 67
-        extended: 360
+      swiftness: 180
+      strong_swiftness: 90
+      long_swiftness: 480
 
-    fire_resistance:
-      drinkable:
-        base: 180
-        extended: 480
-      splash:
-        base: 135
-        extended: 360
+      fire_resistance: 180
+      long_fire_resistance: 480
 
-    poison:
-      drinkable:
-        base: 45
-        II: 22
-        extended: 120
-      splash:
-        base: 33
-        II: 16
-        extended: 90
+      poison: 45
+      strong_poison: 22
+      long_poison: 120
 
-    night_vision:
-      drinkable:
-        base: 180
-        extended: 480
-      splash:
-        base: 180
-        extended: 480
+      night_vision: 180
+      long_night_vision: 480
 
-    weakness:
-      drinkable:
-        base: 90
-        extended: 240
-      splash:
-        base: 90
-        extended: 240
+      weakness: 90
+      long_weakness: 240
 
-    strength:
-      drinkable:
-        base: 180
-        II: 90
-        extended: 480
-      splash:
-        base: 135
-        II: 67
-        extended: 360
+      strength: 180
+      strong_strength: 90
+      long_strength: 480
 
-    slowness:
-      drinkable:
-        base: 90
-        extended: 240
-      splash:
-        base: 67
-        extended: 180
+      slowness: 90
+      long_slowness: 240
 
-    jump: # Leaping
-      drinkable:
-        base: 180
-        II: 90
-        extended: 480
-      splash:
-        base: 135
-        II: 67
-        extended: 360
+      leaping: 180
+      strong_leaping: 90
+      long_leaping: 480
 
-    water_breathing:
-      drinkable:
-        base: 180
-        extended: 480
-      splash:
-        base: 135
-        extended: 360
+      water_breathing: 180
+      long_water_breathing: 480
 
-    invisibility:
-      drinkable:
-        base: 180
-        extended: 480
-      splash:
-        base: 135
-        extended: 360
+      invisibility: 180
+      long_invisibility: 480
 
-    # 1.9+ potions
-    # Turtle Master potion currently incompatible, will just work like default
-    luck:
-      drinkable:
-        base: 300
-      splash:
-        base: 300
+      # 1.9+ potions. You can add more as needed.
+      # Make sure to also add to splash section below.
+      luck: 300
 
-    slow_falling:
-      drinkable:
-        base: 90
-        extended: 240
-      splash:
-        base: 90
-        extended: 240
+      slow_falling: 90
+      long_slow_falling: 240
+
+    splash:
+      regeneration: 33
+      strong_regeneration: 16
+      long_regeneration: 90
+
+      swiftness: 135
+      strong_swiftness: 67
+      long_swiftness: 360
+
+      fire_resistance: 135
+      long_fire_resistance: 360
+
+      poison: 33
+      strong_poison: 16
+      long_poison: 90
+
+      night_vision: 180
+      long_night_vision: 480
+
+      weakness: 90
+      long_weakness: 240
+
+      strength: 135
+      strong_strength: 67
+      long_strength: 360
+
+      slowness: 67
+      long_slowness: 180
+
+      leaping: 135
+      strong_leaping: 67
+      long_leaping: 360
+
+      water_breathing: 135
+      long_water_breathing: 360
+
+      invisibility: 135
+      long_invisibility: 360
+
+      # 1.9+ potions. You can add more as needed
+      luck: 300
+
+      slow_falling: 90
+      long_slow_falling: 240
 
   # EFFECTS
   # If 'multiplier' is true value is multiplied by base tool damage. If 'addend' it is added.
@@ -509,10 +444,59 @@ old-potion-effects:
     modifier: -0.5
     multiplier: false
 
+# ########################
+# MISCELLANEOUS
+# ########################
+
+disable-crafting:
+  # Disable the crafting of specified items
+  enabled: true
+  # List of denied items
+  denied:
+    - shield
+  # Show the user a message if they try to craft a blacklisted item
+  showMessage: true
+  message: "&cERROR: You cannot craft that item! &6To block, simply use your sword like in Minecraft 1.8."
+
+disable-offhand:
+  # Disable the usage of the offhand
+  # Won't affect sword-blocking module
+  enabled: true
+  # Whether the following list allows items or blocks them
+  whitelist: true
+  # List of items that should be allowed/blocked
+  # Example: [diamond_sword,BOW]
+  items: [DRAGON_EGG,END_ROD,REDSTONE_TORCH,SOUL_TORCH,TORCH,APPLE,MUSHROOM_STEW,BREAD,PORKCHOP,COOKED_PORKCHOP,ENCHANTED_GOLDEN_APPLE,GOLDEN_APPLE,COD,COOKED_COD,SALMON,COOKED_SALMON,TROPICAL_FISH,PUFFERFISH,CAKE,COOKIE,MELON_SLICE,DRIED_KELP,BEEF,COOKED_BEEF,CHICKEN,COOKED_CHICKEN,ROTTEN_FLESH,CARROT,CARROT_ON_A_STICK,GOLDEN_CARROT,BAKED_POTATO,POISONOUS_POTATO,POTATO,PUMPKIN_PIE,COOKED_RABBIT,RABBIT,RABBIT_STEW,COOKED_MUTTON,MUTTON,CHORUS_FRUIT,BEETROOT,BEETROOT_SOUP,SUSPICIOUS_STEW,SWEET_BERRIES,HONEY_BOTTLE,GLOW_BERRIES,MILK_BUCKET]
+  # Message to send user when denied. Set to '' to disable
+  denied-message: "&7[&2True&4OG&7] &CERROR: &6That item is not allowed in the offhand. This helps to even the playing field for 1.8 players."
+
+old-brewing-stand:
+  # Automatically refuels brewing stands
+  enabled: true
+
+no-lapis-enchantments:
+  # Automatically adds lapis to enchantment tables upon opening
+  enabled: false
+  # Whether to only allow this for players with oldcombatmechanics.nolapis permission
+  usePermission: false
+
+disable-elytra:
+  # Do not allow players to wear elytra
+  enabled: false
+
+disable-enderpearl-cooldown:
+  # Disables enderpearl cooldown
+  enabled: true
+  # The cooldown, in seconds
+  # PlaceholderAPI: %ocm_enderpearl_cooldown%
+  cooldown: 0
+  # Show the user a message if they try to use an enderpearl and the cooldown has not expired yet
+  showMessage: true
+  message: "&cYou must wait &7%ds&c before using an enderpearl again!"
+
 chorus-fruit:
   # This makes the chorus fruit behaviour configurable
   enabled: false
-  worlds: []
   # The maximum distance the fruit can teleport the player. This a PER AXIS value, so this outlines a cube with
   # 2 * max-teleportation-distance as the side length
   # Vanilla default is 8.
@@ -532,33 +516,55 @@ chorus-fruit:
 
 old-burn-delay:
   # This makes it so entities will immediately start to burn when entering fire
-  enabled: false
-  worlds: []
+  enabled: true
   # How long, in ticks, entities should be on fire for after not being in direct contact anymore
   fire-ticks: 120
 
-attack-frequency:
-  # Allows changing the player invulnerability between hits
-  enabled: true
-  worlds: []
-  # The hit delay to apply. Default for 1.9+ is 20 ticks (1 second)
-  playerDelay: 18
-  mobDelay: 16
+disable-projectile-randomness:
+  # This is to remove projectile randomness while firing arrows with a bow
+  # Or to remove effects of velocity when player is running and launching potions etc
+  # This is actually a very old feature and has been in the game for quite some time
+  enabled: false
+  # What projectiles are affected e.g. arrow, splash_potion, snowball, egg, fishing_hook
+  projectile-types: [ arrow ]
+  # This is the threshold between projectiles' (X,Z) values before they're considered the same and straightened
+  # This value is only useful for multishot. The default of 0.1 works at all but extremely shallow angles,
+  # where arrows end up bunched together. Set to 1 if you want multishots to all follow the same path.
+  epsilon: 0.1
 
-old-critical-hits:
-  # Makes critical hits work like in 1.8
-  # With a critical hit, the damage will be multiplied by 1.5
-  # In 1.9, the user must also not be sprinting for it to be a crit
+disable-bow-boost:
+  # This is to stop players from boosting themselves forward by hitting themselves
+  # while running with a punch II arrow from their bow
+  # This module simply stops them from hitting themselves with arrows entirely
+  enabled: false
+
+disable-attack-sounds:
+  # Disables attack sounds that were added with 1.9+
+  # Requires ProtocolLib
   enabled: true
-  world: []
-  # What the damage, after applying potions effects, is multiplied by
-  multiplier: 1.5
-  # Whether to allow crits while sprinting. 1.8: true, 1.9: false
-  allow-sprinting: true
+  # The sounds that will be blocked by this module
+  blocked-sound-names:
+    - "ENTITY_PLAYER_ATTACK_STRONG"
+    - "ENTITY_PLAYER_ATTACK_SWEEP"
+    - "ENTITY_PLAYER_ATTACK_NODAMAGE"
+    - "ENTITY_PLAYER_ATTACK_KNOCKBACK"
+    - "ENTITY_PLAYER_ATTACK_WEAK"
 
 # ########################
 # SPECIAL SETTINGS BELOW #
 # ########################
+
+message-prefix: "&8[&2OCM&4-OG&8]&r"
+
+# This is to toggle the update checker
+update-checker:
+  # Whether to check for updates and notify players with the oldcombatmechanics.notify permission
+  enabled: false
+  # Whether to automatically download an update of the plugin
+  # The update is applied on the next restart/reload of the server
+  # Auto update is disabled if Spigot version is below 1.18.1 and force-below-1-18-1-config-upgrade is false
+  # This is to prevent accidentally resetting the config
+  auto-update: false
 
 # Whether to force config upgrade even in Spigot versions below 1.18.1
 # This is not advised, as all the comments would be removed
@@ -573,4 +579,4 @@ debug:
   enabled: false
 
 # DO NOT CHANGE THIS NUMBER AS IT WILL RESET YOUR CONFIG
-config-version: 57
+config-version: 65

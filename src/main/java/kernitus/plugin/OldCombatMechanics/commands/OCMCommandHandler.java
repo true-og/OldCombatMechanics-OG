@@ -5,97 +5,133 @@
  */
 package kernitus.plugin.OldCombatMechanics.commands;
 
+import kernitus.plugin.OldCombatMechanics.ModuleLoader;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
-import kernitus.plugin.OldCombatMechanics.module.ModuleAttackCooldown;
 import kernitus.plugin.OldCombatMechanics.utilities.Config;
 import kernitus.plugin.OldCombatMechanics.utilities.Messenger;
+import kernitus.plugin.OldCombatMechanics.utilities.storage.PlayerData;
+import kernitus.plugin.OldCombatMechanics.utilities.storage.PlayerStorage;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
 
 public class OCMCommandHandler implements CommandExecutor {
     private static final String NO_PERMISSION = "&cYou need the permission '%s' to do that!";
 
     private final OCMMain plugin;
-    private final File pluginFile;
 
-    enum Subcommand {reload, toggle, enable, disable}
+    enum Subcommand {reload, mode }
 
-    public OCMCommandHandler(OCMMain instance, File pluginFile) {
+    public OCMCommandHandler(OCMMain instance) {
         this.plugin = instance;
-        this.pluginFile = pluginFile;
     }
 
     private void help(OCMMain plugin, CommandSender sender) {
         final PluginDescriptionFile description = plugin.getDescription();
 
-        Messenger.send(sender, ChatColor.DARK_GRAY + Messenger.HORIZONTAL_BAR);
-        Messenger.send(sender, "&6&lOldCombatMechanics&e by &ckernitus&e and &cRayzr522&e version &6%s", description.getVersion());
+        Messenger.sendNoPrefix(sender, ChatColor.DARK_GRAY + Messenger.HORIZONTAL_BAR);
+        Messenger.sendNoPrefix(sender, "&6&lOldCombatMechanics&e by &ckernitus&e and &cRayzr522&e version &6%s", description.getVersion());
 
         if (checkPermissions(sender, Subcommand.reload))
-            Messenger.send(sender, "&eYou can use &c/ocm reload&e to reload the config file");
-        if (checkPermissions(sender, Subcommand.toggle))
-            Messenger.send(sender, "&eYou can use &c/ocm toggle [player] [on/off] &e to turn attack cooldown on/off");
-        if (checkPermissions(sender, Subcommand.enable) || checkPermissions(sender, Subcommand.disable))
-            Messenger.send(sender, "&eYou can use &c/ocm <enable/disable> [world] &e to toggle cooldown for the server or world");
+            Messenger.sendNoPrefix(sender, "&eYou can use &c/ocm reload&e to reload the config file");
+        if (checkPermissions(sender, Subcommand.mode))
+            Messenger.sendNoPrefix(sender,
+                    Config.getConfig().getString("mode-messages.message-usage",
+                            "&4ERROR: &rmode-messages.message-usage string missing"));
 
-        Messenger.send(sender, ChatColor.DARK_GRAY + Messenger.HORIZONTAL_BAR);
-
-
+        Messenger.sendNoPrefix(sender, ChatColor.DARK_GRAY + Messenger.HORIZONTAL_BAR);
     }
 
     private void reload(CommandSender sender) {
         Config.reload();
-        Messenger.send(sender, "&6&lOldCombatMechanics&e config file reloaded");
+        Messenger.sendNoPrefix(sender, "&6&lOldCombatMechanics&e config file reloaded");
     }
 
-    private void toggle(OCMMain plugin, CommandSender sender, String[] args) {
-        final FileConfiguration config = plugin.getConfig();
+    private void mode(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            if(sender instanceof Player) {
+                final Player player = ((Player) sender);
+                final PlayerData playerData = PlayerStorage.getPlayerData(player.getUniqueId());
+                String modeName = playerData.getModesetForWorld(player.getWorld().getUID());
+                if(modeName == null || modeName.isEmpty()) modeName = "unknown";
 
-        Player player = null;
-        ModuleAttackCooldown.PVPMode mode = null;
-
-        if (args.length >= 2) {
-            player = Bukkit.getPlayer(args[1]);
-
-            if (args.length >= 3) {
-                if (args[2].equalsIgnoreCase("on")) mode = ModuleAttackCooldown.PVPMode.NEW_PVP;
-                else if (args[2].equalsIgnoreCase("off")) mode = ModuleAttackCooldown.PVPMode.OLD_PVP;
+                Messenger.send(sender,
+                        Config.getConfig().getString("mode-messages.mode-status",
+                                "&4ERROR: &rmode-messages.mode-status string missing"),
+                                modeName
+                        );
             }
-        }
-
-        if (player == null && sender instanceof Player) player = (Player) sender;
-        if (player == null) {
-            final String message = config.getString("disable-attack-cooldown.message-usage",
-                    "&4ERROR: &rdisable-attack-cooldown.message-usage string missing");
-            Messenger.sendNormalMessage(sender, message);
+            Messenger.send(sender,
+                    Config.getConfig().getString("mode-messages.message-usage",
+                            "&4ERROR: &rmode-messages.message-usage string missing"));
             return;
         }
 
-        if (mode == null) {
-            ModuleAttackCooldown.PVPMode oldMode = ModuleAttackCooldown.PVPMode.getModeForPlayer(player);
-            mode = oldMode == ModuleAttackCooldown.PVPMode.NEW_PVP ?
-                    ModuleAttackCooldown.PVPMode.OLD_PVP : ModuleAttackCooldown.PVPMode.NEW_PVP;
+        final String modesetName = args[1].toLowerCase(Locale.ROOT);
+
+        if (!Config.getModesets().containsKey(modesetName)) {
+            Messenger.send(sender,
+                    Config.getConfig().getString("mode-messages.invalid-modeset",
+                            "&4ERROR: &rmode-messages.invalid-modeset string missing"));
+            return;
         }
 
-        final String message = config.getString("disable-attack-cooldown.message-" +
-                                (mode == ModuleAttackCooldown.PVPMode.NEW_PVP ? "enabled" : "disabled"),
-                        "&4ERROR: &rdisable-attack-cooldown.message strings missing")
-                .replaceAll("%player%", player.getDisplayName());
+        Player player = null;
+        if (args.length < 3) {
+            if (sender instanceof Player) {
+                if (sender.hasPermission("oldcombatmechanics.mode.own"))
+                    player = (Player) sender;
+            }
+            else {
+                Messenger.send(sender,
+                        Config.getConfig().getString("mode-messages.invalid-player",
+                                "&4ERROR: &rmode-messages.invalid-player string missing"));
+                return;
+            }
+        } else if (sender.hasPermission("oldcombatmechanics.mode.others"))
+            player = Bukkit.getPlayer(args[2]);
 
-        ModuleAttackCooldown.setAttackSpeed(player, mode);
-        Messenger.sendNormalMessage(sender, message);
+        if (player == null) {
+            Messenger.send(sender,
+                    Config.getConfig().getString("mode-messages.invalid-player",
+                            "&4ERROR: &rmode-messages.invalid-player string missing"));
+            return;
+        }
+
+        final UUID worldId = player.getWorld().getUID();
+        final Set<String> worldModesets = Config.getWorlds().get(worldId);
+
+        // If modesets null it means not configured, so all are allowed
+        if(worldModesets != null && !worldModesets.contains(modesetName)){ // Modeset not allowed in current world
+            Messenger.send(sender,
+                    Config.getConfig().getString("mode-messages.invalid-modeset",
+                            "&4ERROR: &rmode-messages.invalid-modeset string missing"));
+            return;
+        }
+
+        final PlayerData playerData = PlayerStorage.getPlayerData(player.getUniqueId());
+        playerData.setModesetForWorld(worldId, modesetName);
+        PlayerStorage.setPlayerData(player.getUniqueId(), playerData);
+        PlayerStorage.scheduleSave();
+
+        Messenger.send(sender,
+                Config.getConfig().getString("mode-messages.mode-set",
+                        "&4ERROR: &rmode-messages.mode-set string missing"),
+                modesetName
+        );
+
+        // Re-apply things like attack speed and collision team
+        final Player playerCopy = player;
+        ModuleLoader.getModules().forEach(module -> module.onModesetChange(playerCopy));
     }
 
     /*
@@ -107,20 +143,6 @@ public class OCMCommandHandler implements CommandExecutor {
         new InGameTester(plugin).performTests(sender, location);
     }
      */
-
-    private void wideToggle(CommandSender sender, String[] args, ModuleAttackCooldown.PVPMode mode) {
-        final Set<World> worlds = args.length > 1 ?
-                Arrays.asList(args).subList(1, args.length).stream().map(Bukkit::getWorld).filter(Objects::nonNull).collect(Collectors.toSet())
-                : new HashSet<>(Bukkit.getWorlds());
-
-        worlds.stream().map(World::getPlayers).forEach(players -> players.forEach(
-                player -> ModuleAttackCooldown.setAttackSpeed(player, mode)));
-
-        // Do not use method reference to get world name because with 1.18 method was moved from World to WorldInfo
-        final String message = (mode == ModuleAttackCooldown.PVPMode.NEW_PVP ? "Enabled" : "Disabled") + " cooldown for worlds: " +
-                worlds.stream().map(w -> w.getName()).reduce((a, b) -> a + ", " + b).orElse("none!");
-        Messenger.sendNormalMessage(sender, message);
-    }
 
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, String[] args) {
         if (args.length < 1) {
@@ -134,16 +156,13 @@ public class OCMCommandHandler implements CommandExecutor {
                             case reload:
                                 reload(sender);
                                 break;
-                            case toggle:
-                                toggle(plugin, sender, args);
+                                /*
+                            case test:
+                                test(plugin, sender);
                                 break;
-                            //case test: test(plugin, sender);
-                            //    break;
-                            case enable:
-                                wideToggle(sender, args, ModuleAttackCooldown.PVPMode.NEW_PVP);
-                                break;
-                            case disable:
-                                wideToggle(sender, args, ModuleAttackCooldown.PVPMode.OLD_PVP);
+                                 */
+                            case mode:
+                                mode(sender, args);
                                 break;
                             default:
                                 throw new CommandNotRecognisedException();
@@ -153,7 +172,7 @@ public class OCMCommandHandler implements CommandExecutor {
                     throw new CommandNotRecognisedException();
                 }
             } catch (CommandNotRecognisedException e) {
-                Messenger.sendNormalMessage(sender, "Subcommand not recognised!");
+                Messenger.send(sender, "Subcommand not recognised!");
             }
         }
         return true;
@@ -169,7 +188,7 @@ public class OCMCommandHandler implements CommandExecutor {
     static boolean checkPermissions(CommandSender sender, Subcommand subcommand, boolean sendMessage) {
         final boolean hasPermission = sender.hasPermission("oldcombatmechanics." + subcommand);
         if (sendMessage && !hasPermission)
-            Messenger.send(sender, NO_PERMISSION, "oldcombatmechanics." + subcommand);
+            Messenger.sendNoPrefix(sender, NO_PERMISSION, "oldcombatmechanics." + subcommand);
         return hasPermission;
     }
 }

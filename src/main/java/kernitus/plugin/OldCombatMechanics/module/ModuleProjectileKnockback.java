@@ -25,9 +25,9 @@ public class ModuleProjectileKnockback extends OCMModule {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onEntityHit(EntityDamageByEntityEvent e) {
-        if (!isEnabled(e.getEntity().getWorld())) return;
+        if (!isEnabled(e.getDamager(), e.getEntity())) return;
 
-        EntityType type = e.getDamager().getType();
+        final EntityType type = e.getDamager().getType();
 
         switch (type) {
             case SNOWBALL: case EGG: case ENDER_PEARL:

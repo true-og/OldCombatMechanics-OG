@@ -15,11 +15,18 @@ import java.util.logging.Level;
 public class Messenger {
 
     public static final String HORIZONTAL_BAR = ChatColor.STRIKETHROUGH + "----------------------------------------------------";
-    static boolean DEBUG_ENABLED = false;
     private static OCMMain plugin;
+
+    private static boolean DEBUG_ENABLED = false;
+    private static String PREFIX = "&6[OCM]&r";
 
     public static void initialise(OCMMain plugin) {
         Messenger.plugin = plugin;
+    }
+
+    public static void reloadConfig(boolean debugEnabled, String prefix){
+        DEBUG_ENABLED = debugEnabled;
+        PREFIX = prefix;
     }
 
     public static void info(String message, Object... args) {
@@ -43,10 +50,11 @@ public class Messenger {
      * @param message The message to send.
      * @param args    The args to format the message with.
      */
-    public static void send(CommandSender sender, String message, Object... args) {
+    public static void sendNoPrefix(CommandSender sender, String message, Object... args) {
         Objects.requireNonNull(sender, "sender cannot be null!");
         Objects.requireNonNull(message, "message cannot be null!");
-
+        // Prevents sending of individual empty messages, allowing for selective message disabling.
+        if (message.isEmpty()) return;
         sender.sendMessage(TextUtils.colourise(String.format(message, args)));
     }
 
@@ -61,11 +69,13 @@ public class Messenger {
      * @param args    The args to format the message with.
      */
     private static void sendWithPrefix(CommandSender sender, String message, String prefix, Object... args) {
-        send(sender, prefix + " " + message, args);
+        // Prevents sending of individual empty messages, allowing for selective message disabling.
+        if (message.isEmpty()) return;
+        sendNoPrefix(sender, prefix + " " + message, args);
     }
 
-    public static void sendNormalMessage(CommandSender sender, String message, Object... args) {
-        sendWithPrefix(sender, message, "&6[OCM]&r", args);
+    public static void send(CommandSender sender, String message, Object... args) {
+        sendWithPrefix(sender, message, PREFIX, args);
     }
 
     private static void sendDebugMessage(CommandSender sender, String message, Object... args) {

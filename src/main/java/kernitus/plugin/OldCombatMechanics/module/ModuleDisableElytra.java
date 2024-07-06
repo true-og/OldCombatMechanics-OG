@@ -8,7 +8,6 @@ package kernitus.plugin.OldCombatMechanics.module;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -40,7 +39,7 @@ public class ModuleDisableElytra extends OCMModule {
         if (!(e.getWhoClicked() instanceof Player)) return;
         final Player player = (Player) e.getWhoClicked();
 
-        if (!isEnabled(player.getWorld()) || player.getGameMode() == GameMode.CREATIVE) return;
+        if (!isEnabled(player) || player.getGameMode() == GameMode.CREATIVE) return;
 
         // If they're in their own inventory, and not chests etc.
         final InventoryType inventoryType = e.getInventory().getType();
@@ -76,7 +75,7 @@ public class ModuleDisableElytra extends OCMModule {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onRightClick(PlayerInteractEvent e) {
-        if (!isEnabled(e.getPlayer().getWorld())) return;
+        if (!isEnabled(e.getPlayer())) return;
 
         // Must not be able to right click while holding an elytra to wear it
         final Action action = e.getAction();
@@ -89,7 +88,7 @@ public class ModuleDisableElytra extends OCMModule {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDrag(InventoryDragEvent e) {
-        if (!isEnabled(e.getWhoClicked().getWorld())) return;
+        if (!isEnabled(e.getWhoClicked())) return;
 
         final ItemStack oldCursor = e.getOldCursor();
 
@@ -99,9 +98,12 @@ public class ModuleDisableElytra extends OCMModule {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onWorldChange(PlayerChangedWorldEvent e) {
-        final Player player = e.getPlayer();
-        final World world = player.getWorld();
-        if (!isEnabled(world)) return;
+        onModesetChange(e.getPlayer());
+    }
+
+    @Override
+    public void onModesetChange(Player player) {
+        if (!isEnabled(player)) return;
 
         final PlayerInventory inventory = player.getInventory();
         final ItemStack chestplate = inventory.getChestplate();
@@ -113,6 +115,7 @@ public class ModuleDisableElytra extends OCMModule {
         if (inventory.firstEmpty() != -1)
             inventory.addItem(chestplate);
         else
-            world.dropItem(player.getLocation(), chestplate);
+            player.getWorld().dropItem(player.getLocation(), chestplate);
+
     }
 }

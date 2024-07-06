@@ -6,10 +6,11 @@
 
 package kernitus.plugin.OldCombatMechanics.utilities.damage;
 
-import kernitus.plugin.OldCombatMechanics.utilities.Messenger;
+import kernitus.plugin.OldCombatMechanics.utilities.potions.PotionEffectTypeCompat;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.SpigotFunctionChooser;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.VersionCompatUtils;
+import kernitus.plugin.OldCombatMechanics.versions.enchantments.EnchantmentCompat;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
@@ -18,7 +19,6 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffectType;
 
 import java.util.Collection;
 import java.util.EnumSet;
@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+
+import static kernitus.plugin.OldCombatMechanics.utilities.Messenger.debug;
 
 /**
  * Utilities for calculating damage reduction from armour and status effects.
@@ -55,9 +57,9 @@ public class DefenceUtils {
 
     // Stalagmite ignores armour but other blocks under CONTACT do not, explicitly checked below
     static {
-        if (Reflector.versionIsNewerOrEqualAs(1, 11, 0))
+        if (Reflector.versionIsNewerOrEqualTo(1, 11, 0))
             ARMOUR_IGNORING_CAUSES.add(EntityDamageEvent.DamageCause.CRAMMING);
-        if (Reflector.versionIsNewerOrEqualAs(1, 17, 0))
+        if (Reflector.versionIsNewerOrEqualTo(1, 17, 0))
             ARMOUR_IGNORING_CAUSES.add(EntityDamageEvent.DamageCause.FREEZE);
     }
 
@@ -78,7 +80,8 @@ public class DefenceUtils {
     @SuppressWarnings("deprecation")
     public static void calculateDefenceDamageReduction(LivingEntity damagedEntity,
                                                        Map<EntityDamageEvent.DamageModifier, Double> damageModifiers,
-                                                       EntityDamageEvent.DamageCause damageCause) {
+                                                       EntityDamageEvent.DamageCause damageCause,
+                                                       boolean randomness) {
 
         final double armourPoints = damagedEntity.getAttribute(Attribute.GENERIC_ARMOR).getValue();
         // Make sure we don't go over 100% protection
@@ -94,7 +97,7 @@ public class DefenceUtils {
             // If the damage cause does not ignore armour
             // If the block they are in is a stalagmite, also ignore armour
             if (!ARMOUR_IGNORING_CAUSES.contains(damageCause) &&
-                    !(Reflector.versionIsNewerOrEqualAs(1, 19, 0) &&
+                    !(Reflector.versionIsNewerOrEqualTo(1, 19, 0) &&
                             damageCause == EntityDamageEvent.DamageCause.CONTACT &&
                             damagedEntity.getLocation().getBlock().getType() == Material.POINTED_DRIPSTONE)
             ) {
@@ -109,8 +112,8 @@ public class DefenceUtils {
             // Apply resistance effect
             if (damageModifiers.containsKey(EntityDamageEvent.DamageModifier.RESISTANCE) &&
                     damageCause != EntityDamageEvent.DamageCause.VOID &&
-                    damagedEntity.hasPotionEffect(PotionEffectType.DAMAGE_RESISTANCE)) {
-                final int level = damagedEntity.getPotionEffect(PotionEffectType.DAMAGE_RESISTANCE).getAmplifier() + 1;
+                    damagedEntity.hasPotionEffect(PotionEffectTypeCompat.RESISTANCE.get())) {
+                final int level = damagedEntity.getPotionEffect(PotionEffectTypeCompat.RESISTANCE.get()).getAmplifier() + 1;
                 // Make sure we don't go over 100% protection
                 final double resistanceReductionFactor = Math.min(1.0, level * REDUCTION_PER_RESISTANCE_LEVEL);
                 final double resistanceReduction = -resistanceReductionFactor * currentDamage;
@@ -121,37 +124,32 @@ public class DefenceUtils {
             // Apply armour enchants
             // Don't calculate enchants if damage already 0 (like 1.8 NMS). Enchants cap at 80% reduction
             if (currentDamage > 0 && damageModifiers.containsKey(EntityDamageEvent.DamageModifier.MAGIC)) {
-                final double enchantsReductionFactor = calculateArmourEnchantmentReductionFactor(damagedEntity.getEquipment().getArmorContents(), damageCause);
+                final double enchantsReductionFactor = calculateArmourEnchantmentReductionFactor(damagedEntity.getEquipment().getArmorContents(), damageCause, randomness);
                 final double enchantsReduction = currentDamage * -enchantsReductionFactor;
                 damageModifiers.put(EntityDamageEvent.DamageModifier.MAGIC, enchantsReduction);
                 currentDamage += enchantsReduction;
             }
 
             // Absorption
-            if(damageModifiers.containsKey(EntityDamageEvent.DamageModifier.ABSORPTION)) {
+            if (damageModifiers.containsKey(EntityDamageEvent.DamageModifier.ABSORPTION)) {
                 final double absorptionAmount = getAbsorptionAmount.apply(damagedEntity);
                 double absorptionReduction = -Math.min(absorptionAmount, currentDamage);
                 damageModifiers.put(EntityDamageEvent.DamageModifier.ABSORPTION, absorptionReduction);
             }
         }
-
-        /*
-        final double finalDamage = damageModifiers.values().stream().reduce(0.0, Double::sum);
-        debug(String.format("Reductions: Armour %.0f, Ench %.0f, Total %.2f, Final Damage: %.2f", reductionPercentage * 100,
-                enchantmentReductionPercentage * 100, (reductionPercentage + (1 - reductionPercentage) * enchantmentReductionPercentage) * 100,
-                finalDamage), damagedEntity);
-         */
     }
 
     /**
-     * Return the damage after applying armour and armour enchants protections, following 1.8 algorithm.
+     * Return the damage after applying armour, resistance, and armour enchants protections, following 1.8 algorithm.
      *
+     * @param defender       The entity that is being attacked
      * @param baseDamage     The base damage done by the event, including weapon enchants, potions, crits
      * @param armourContents The 4 pieces of armour contained in the armour slots
      * @param damageCause    The source of damage
+     * @param randomness     Whether to apply random multiplier
      * @return The damage done to the entity after armour is taken into account
      */
-    public static double getDamageAfterArmour1_8(double baseDamage, ItemStack[] armourContents, EntityDamageEvent.DamageCause damageCause) {
+    public static double getDamageAfterArmour1_8(LivingEntity defender, double baseDamage, ItemStack[] armourContents, EntityDamageEvent.DamageCause damageCause, boolean randomness) {
         double armourPoints = 0;
         for (int i = 0; i < armourContents.length; i++) {
             final ItemStack itemStack = armourContents[i];
@@ -165,13 +163,19 @@ public class DefenceUtils {
         // Apply armour damage reduction
         double finalDamage = baseDamage - (ARMOUR_IGNORING_CAUSES.contains(damageCause) ? 0 : (baseDamage * reductionFactor));
 
+        // Calculate resistance
+        if (defender.hasPotionEffect(PotionEffectTypeCompat.RESISTANCE.get())) {
+            int resistanceLevel = defender.getPotionEffect(PotionEffectTypeCompat.RESISTANCE.get()).getAmplifier() + 1;
+            finalDamage *= 1.0 - (resistanceLevel * 0.2);
+        }
+
         // Don't calculate enchantment reduction if damage is already 0. NMS 1.8 does it this way.
-        final double enchantmentReductionFactor = calculateArmourEnchantmentReductionFactor(armourContents, damageCause);
+        final double enchantmentReductionFactor = calculateArmourEnchantmentReductionFactor(armourContents, damageCause, randomness);
         if (finalDamage > 0) {
             finalDamage -= finalDamage * enchantmentReductionFactor;
         }
 
-        Messenger.debug("Reductions: Armour %.0f%%, Ench %.0f%%, Total %.2f%%, Start dmg: %.2f Final: %.2f", reductionFactor * 100,
+        debug("Reductions: Armour %.0f%%, Ench %.0f%%, Total %.2f%%, Start dmg: %.2f Final: %.2f", reductionFactor * 100,
                 enchantmentReductionFactor * 100, (reductionFactor + (1 - reductionFactor) * enchantmentReductionFactor) * 100,
                 baseDamage, finalDamage);
 
@@ -201,7 +205,8 @@ public class DefenceUtils {
         return sum;
     }
 
-    private static double calculateArmourEnchantmentReductionFactor(ItemStack[] armourContents, EntityDamageEvent.DamageCause cause) {
+
+    private static double calculateArmourEnchantmentReductionFactor(ItemStack[] armourContents, EntityDamageEvent.DamageCause cause, boolean randomness) {
         int totalEpf = 0;
         for (ItemStack armourItem : armourContents) {
             if (armourItem != null && armourItem.getType() != Material.AIR) {
@@ -221,8 +226,8 @@ public class DefenceUtils {
         totalEpf = Math.min(25, totalEpf);
 
         // Multiply by random value between 50% and 100%, then round up
-        totalEpf = (int) Math.ceil(totalEpf * ThreadLocalRandom.current().nextDouble(0.5, 1));
-        // totalEpf = (int) Math.ceil(totalEpf); // remove randomness for testing
+        double multiplier = randomness ? ThreadLocalRandom.current().nextDouble(0.5, 1) : 1.0;
+        totalEpf = (int) Math.ceil(totalEpf * multiplier);
 
         // Cap at 20
         totalEpf = Math.min(20, totalEpf);
@@ -250,14 +255,14 @@ public class DefenceUtils {
                     EntityDamageEvent.DamageCause.THORNS,
                     EntityDamageEvent.DamageCause.DRAGON_BREATH
             );
-            if (Reflector.versionIsNewerOrEqualAs(1, 10, 0))
+            if (Reflector.versionIsNewerOrEqualTo(1, 10, 0))
                 damageCauses.add(EntityDamageEvent.DamageCause.HOT_FLOOR);
-            if (Reflector.versionIsNewerOrEqualAs(1, 12, 0))
+            if (Reflector.versionIsNewerOrEqualTo(1, 12, 0))
                 damageCauses.add(EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK);
 
             return damageCauses;
         },
-                0.75, Enchantment.PROTECTION_ENVIRONMENTAL),
+                0.75, EnchantmentCompat.PROTECTION.get()),
         FIRE_PROTECTION(() -> {
             EnumSet<EntityDamageEvent.DamageCause> damageCauses = EnumSet.of(
                     EntityDamageEvent.DamageCause.FIRE,
@@ -265,22 +270,22 @@ public class DefenceUtils {
                     EntityDamageEvent.DamageCause.LAVA
             );
 
-            if (Reflector.versionIsNewerOrEqualAs(1, 10, 0)) {
+            if (Reflector.versionIsNewerOrEqualTo(1, 10, 0)) {
                 damageCauses.add(EntityDamageEvent.DamageCause.HOT_FLOOR);
             }
 
             return damageCauses;
-        }, 1.25, Enchantment.PROTECTION_FIRE),
+        }, 1.25, EnchantmentCompat.FIRE_PROTECTION.get()),
         BLAST_PROTECTION(() -> EnumSet.of(
                 EntityDamageEvent.DamageCause.ENTITY_EXPLOSION,
                 EntityDamageEvent.DamageCause.BLOCK_EXPLOSION
-        ), 1.5, Enchantment.PROTECTION_EXPLOSIONS),
+        ), 1.5, EnchantmentCompat.BLAST_PROTECTION.get()),
         PROJECTILE_PROTECTION(() -> EnumSet.of(
                 EntityDamageEvent.DamageCause.PROJECTILE
-        ), 1.5, Enchantment.PROTECTION_PROJECTILE),
+        ), 1.5, EnchantmentCompat.PROJECTILE_PROTECTION.get()),
         FALL_PROTECTION(() -> EnumSet.of(
                 EntityDamageEvent.DamageCause.FALL
-        ), 2.5, Enchantment.PROTECTION_FALL);
+        ), 2.5, EnchantmentCompat.FEATHER_FALLING.get());
 
         private final Set<EntityDamageEvent.DamageCause> protection;
         private final double typeModifier;

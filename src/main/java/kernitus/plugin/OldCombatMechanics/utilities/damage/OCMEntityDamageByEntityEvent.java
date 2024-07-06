@@ -5,9 +5,10 @@
  */
 package kernitus.plugin.OldCombatMechanics.utilities.damage;
 
+import kernitus.plugin.OldCombatMechanics.utilities.potions.PotionEffectTypeCompat;
 import kernitus.plugin.OldCombatMechanics.utilities.potions.PotionEffects;
+import kernitus.plugin.OldCombatMechanics.versions.enchantments.EnchantmentCompat;
 import org.bukkit.Material;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.*;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
@@ -37,7 +38,7 @@ public class OCMEntityDamageByEntityEvent extends Event implements Cancellable {
 
     private final Entity damager, damagee;
     private final DamageCause cause;
-    private final double rawDamage;
+    private double rawDamage;
 
     private ItemStack weapon;
     private int sharpnessLevel;
@@ -58,14 +59,12 @@ public class OCMEntityDamageByEntityEvent extends Event implements Cancellable {
 
     // Here we reverse-engineer all the various damages caused by removing them one at a time, backwards from what NMS code does.
     // This is so the modules can listen to this event and make their modifications, then EntityDamageByEntityListener sets the new values back.
-    // Perform the opposite of the following:
+    // Performs the opposite of the following:
     // (Base + Potion effects, scaled by attack delay) + Critical Hit + (Enchantments, scaled by attack delay), Overdamage, Armour
     public OCMEntityDamageByEntityEvent(Entity damager, Entity damagee, DamageCause cause, double rawDamage) {
         this.damager = damager;
         this.damagee = damagee;
         this.cause = cause;
-        // The raw damage passed to this event is EDBE's BASE damage, which does not include armour effects or resistance
-        this.rawDamage = rawDamage;
 
         // We ignore attacks like arrows etc. because we do not need to change the attack side of those
         // Other modules such as old armour strength work independently of this event
@@ -74,14 +73,35 @@ public class OCMEntityDamageByEntityEvent extends Event implements Cancellable {
             return;
         }
 
-        final LivingEntity livingDamager = (LivingEntity) damager;
+        // The raw damage passed to this event is EDBE's BASE damage, which does not include armour effects or resistance etc (defence)
+        this.rawDamage = rawDamage;
 
         /*
-        Normally invulnerability overdamage would have to be taken into account here, but instead in the EDBEListener
-        we artificially set the last damage to 0 between events so that all hits will register.
-        Once all modules have acted upon the damage, we then work out if it will be an overdamage or not,
-        and whether we need to cancel the event accordingly.
-         */
+        Invulnerability will cause less damage if they attack with a stronger weapon while vulnerable.
+        We must detect this and account for it, instead of setting the usual base weapon damage.
+        We artificially set the last damage to 0 between events so that all hits will register,
+        however we only do this for DamageByEntity, so there could still be environmental damage (e.g. cactus).
+        */
+        if (damagee instanceof LivingEntity) {
+            final LivingEntity livingDamagee = (LivingEntity) damagee;
+            if ((float) livingDamagee.getNoDamageTicks() > (float) livingDamagee.getMaximumNoDamageTicks() / 2.0F) {
+                // NMS code also checks if current damage is higher that previous damage. However, here the event
+                // already has the difference between the two as the raw damage, and the event does not fire at all
+                // if this precondition is not met.
+
+                // Adjust for last damage being environmental sources (e.g. cactus, fall damage)
+                final double lastDamage = livingDamagee.getLastDamage();
+                this.rawDamage = rawDamage + lastDamage;
+
+                debug(livingDamagee, "Overdamaged!: " + livingDamagee.getNoDamageTicks() + "/" +
+                        livingDamagee.getMaximumNoDamageTicks() + " last: " + livingDamagee.getLastDamage());
+            } else {
+                debug(livingDamagee, "Invulnerability: " + livingDamagee.getNoDamageTicks() + "/" +
+                        livingDamagee.getMaximumNoDamageTicks() + " last: " + livingDamagee.getLastDamage());
+            }
+        }
+
+        final LivingEntity livingDamager = (LivingEntity) damager;
 
         weapon = livingDamager.getEquipment().getItemInMainHand();
         // Yay paper. Why do you need to return null here?
@@ -92,9 +112,11 @@ public class OCMEntityDamageByEntityEvent extends Event implements Cancellable {
         final EntityType damageeType = damagee.getType();
 
         debug(livingDamager, "Raw attack damage: " + rawDamage);
+        debug(livingDamager, "Without overdamage: " + this.rawDamage);
+
 
         mobEnchantmentsDamage = MobDamage.getEntityEnchantmentsDamage(damageeType, weapon);
-        sharpnessLevel = weapon.getEnchantmentLevel(Enchantment.DAMAGE_ALL);
+        sharpnessLevel = weapon.getEnchantmentLevel(EnchantmentCompat.SHARPNESS.get());
         sharpnessDamage = DamageUtils.getNewSharpnessDamage(sharpnessLevel);
 
         // Scale enchantment damage by attack cooldown
@@ -107,7 +129,7 @@ public class OCMEntityDamageByEntityEvent extends Event implements Cancellable {
         debug(livingDamager, "Mob: " + mobEnchantmentsDamage + " Sharpness: " + sharpnessDamage);
 
         // Amount of damage including potion effects and critical hits
-        double tempDamage = rawDamage - mobEnchantmentsDamage - sharpnessDamage;
+        double tempDamage = this.rawDamage - mobEnchantmentsDamage - sharpnessDamage;
 
         debug(livingDamager, "No ench damage: " + tempDamage);
 
@@ -131,7 +153,7 @@ public class OCMEntityDamageByEntityEvent extends Event implements Cancellable {
         }
 
         // amplifier 0 = Strength I    amplifier 1 = Strength II
-        strengthLevel = PotionEffects.get(livingDamager, PotionEffectType.INCREASE_DAMAGE)
+        strengthLevel = PotionEffects.get(livingDamager, PotionEffectTypeCompat.STRENGTH.get())
                 .map(PotionEffect::getAmplifier)
                 .orElse(-1) + 1;
 

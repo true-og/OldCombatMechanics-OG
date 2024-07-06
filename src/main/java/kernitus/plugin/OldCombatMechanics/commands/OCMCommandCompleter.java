@@ -5,7 +5,9 @@
  */
 package kernitus.plugin.OldCombatMechanics.commands;
 
+import kernitus.plugin.OldCombatMechanics.utilities.Config;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -17,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static kernitus.plugin.OldCombatMechanics.commands.OCMCommandHandler.Subcommand;
 
@@ -36,24 +37,33 @@ public class OCMCommandCompleter implements TabCompleter {
                     .filter(arg -> arg.toString().startsWith(args[0]))
                     .filter(arg -> OCMCommandHandler.checkPermissions(sender, arg))
                     .map(Enum::toString).collect(Collectors.toList()));
-        } else {
-             if (args[0].equalsIgnoreCase(Subcommand.toggle.toString())) {
-                if (args.length < 3) {
-                    completions.addAll(Bukkit.getOnlinePlayers().stream()
-                            .map(Player::getName)
-                            .filter(arg -> arg.startsWith(args[1]))
-                            .collect(Collectors.toList()));
-                } else {
-                    completions.addAll(Stream.of("on", "off").filter(arg -> arg.startsWith(args[2])).collect(Collectors.toList()));
+        } else if (args[0].equalsIgnoreCase(Subcommand.mode.toString())) {
+            if (args.length < 3) {
+                if (sender.hasPermission("oldcombatmechanics.mode.others")
+                        || sender.hasPermission("oldcombatmechanics.mode.own")
+                ) {
+                    if (sender instanceof Player) { // Get the modesets allowed in the world player is in
+                        final World world = ((Player) sender).getWorld();
+                        completions.addAll(
+                                Config.getWorlds()
+                                        // If world not in config, all modesets allowed
+                                        .getOrDefault(world.getUID(), Config.getModesets().keySet())
+                                        .stream()
+                                        .filter(ms -> ms.startsWith(args[1]))
+                                        .collect(Collectors.toList()));
+                    } else {
+                        completions.addAll(Config.getModesets().keySet().stream()
+                                .filter(ms -> ms.startsWith(args[1]))
+                                .collect(Collectors.toList()));
+                    }
                 }
-            } else if (args[0].equalsIgnoreCase(Subcommand.enable.toString()) || args[0].equalsIgnoreCase(Subcommand.disable.toString())) {
-                // Do not use method reference to get world name because with 1.18 method was moved from World to WorldInfo
-                completions.addAll(Bukkit.getWorlds().stream()
-                        .map(w -> w.getName())
-                        .filter(name -> !Arrays.asList(args).subList(1,args.length).contains(name))
-                        .filter(arg -> arg.startsWith(args[args.length - 1]))
+            } else if (sender.hasPermission("oldcombatmechanics.mode.others")) {
+                completions.addAll(Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .filter(arg -> arg.startsWith(args[2]))
                         .collect(Collectors.toList()));
             }
+
         }
 
         return completions;

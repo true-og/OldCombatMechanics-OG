@@ -12,26 +12,22 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.embedded.EmbeddedChannel;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.network.chat.IChatBaseComponent;
-import net.minecraft.network.protocol.EnumProtocolDirection;
+import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.PacketPlayOutEntityDestroy;
-import net.minecraft.network.protocol.game.PacketPlayOutEntityEquipment;
-import net.minecraft.network.protocol.game.PacketPlayOutNamedEntitySpawn;
-import net.minecraft.network.protocol.game.PacketPlayOutPlayerInfo;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundAddPlayerPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.EntityPlayer;
-import net.minecraft.server.level.WorldServer;
-import net.minecraft.server.network.PlayerConnection;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.server.players.PlayerList;
-import net.minecraft.stats.StatisticList;
-import net.minecraft.world.EnumHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityLiving;
-import net.minecraft.world.entity.EnumItemSlot;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.EnumGamemode;
+import net.minecraft.world.level.GameType;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -40,14 +36,13 @@ import org.bukkit.craftbukkit.v1_19_R1.CraftWorld;
 import org.bukkit.craftbukkit.v1_19_R1.entity.CraftLivingEntity;
 import org.bukkit.craftbukkit.v1_19_R1.entity.CraftPlayer;
 import org.bukkit.craftbukkit.v1_19_R1.inventory.CraftItemStack;
-import org.bukkit.craftbukkit.v1_19_R1.util.CraftChatMessage;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import xyz.jpenilla.reflectionremapper.ReflectionRemapper;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -65,19 +60,21 @@ import java.util.UUID;
     https://www.spigotmc.org/threads/nms-serverplayer-entityplayer-for-the-1-17-1-18-mojang-mappings-with-fall-damage-and-knockback.551281/
 
     - NMS mappings for checking Mojang / Spigot / Obfuscated class, field, and method names
-    https://nms.screamingsandals.org/
+    https://mappings.cephx.dev/
  */
 
 public class FakePlayer {
 
     private final UUID uuid;
     private final String name;
-    private EntityPlayer entityPlayer;
+    private ServerPlayer entityPlayer;
     private Player bukkitPlayer;
+    private Integer tickTaskId;
 
     public FakePlayer() {
         uuid = UUID.randomUUID();
         name = uuid.toString().substring(0, 16);
+        tickTaskId = null;
     }
 
     public UUID getUuid() {
@@ -88,142 +85,117 @@ public class FakePlayer {
         return name;
     }
 
-    public EntityPlayer getEntityPlayer() {
+    public ServerPlayer getServerPlayer() {
         return entityPlayer;
     }
 
     public void spawn(Location location) {
-        WorldServer worldServer = ((CraftWorld) location.getWorld()).getHandle();
-
+        ServerLevel worldServer = ((CraftWorld) location.getWorld()).getHandle();
         MinecraftServer mcServer = ((CraftServer) Bukkit.getServer()).getServer();
 
         final GameProfile gameProfile = new GameProfile(uuid, name);
-        this.entityPlayer = new EntityPlayer(mcServer, worldServer, gameProfile, null);
+        this.entityPlayer = new ServerPlayer(mcServer, worldServer, gameProfile, null);
 
-        // entityPlayer.playerConnection
-        entityPlayer.b = new PlayerConnection(mcServer, new NetworkManager(EnumProtocolDirection.a), entityPlayer); // should be EnumProtocolDirection.CLIENTBOUND
+        entityPlayer.connection = new ServerGamePacketListenerImpl(mcServer, new Connection(PacketFlow.CLIENTBOUND), entityPlayer);
+        entityPlayer.connection.connection.channel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+        entityPlayer.connection.connection.channel.close();
 
-        // entityPlayer.playerConnection.networkManager.channel
-        entityPlayer.b.b.m = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
-        entityPlayer.b.b.m.close();
+        entityPlayer.setGameMode(GameType.SURVIVAL);
+
+        entityPlayer.setPos(location.getX(), location.getY(), location.getZ());
+        entityPlayer.setXRot(0);
+        entityPlayer.setYRot(0);
 
         try {
-            AsyncPlayerPreLoginEvent asyncPreLoginEvent = new AsyncPlayerPreLoginEvent(name, InetAddress.getByName("127.0.0.1"), uuid);
+            final InetAddress ipAddress = InetAddress.getByName("127.0.0.1");
+            final AsyncPlayerPreLoginEvent asyncPreLoginEvent = new AsyncPlayerPreLoginEvent(name, ipAddress, uuid);
             new Thread(() -> Bukkit.getPluginManager().callEvent(asyncPreLoginEvent)).start();
+
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
 
-        mcServer.ac().a(entityPlayer); // mcServer.getPlayerList().a(entityPlayer);
+        // TODO playerloginevent might need to get called separately
+        //PlayerLoginEvent playerLoginEvent = new PlayerLoginEvent((Player) entityPlayer, "hostname", ipAddress, ipAddress);
 
-        entityPlayer.e(location.getX(), location.getY(), location.getZ()); // Entity.setLocation
-        entityPlayer.p(0); // Entity.setXRot()
-        entityPlayer.o(0); // Entity.setYRot()
-
+        final PlayerList playerList = mcServer.getPlayerList();
+        playerList.load(entityPlayer);
         entityPlayer.spawnIn(worldServer);
-        // entityPlayer.playerInteractManager.changeGameModeForPlayer(GameType.SURVIVAL);
-        entityPlayer.d.a(EnumGamemode.a);
-
-        worldServer.c(entityPlayer); // worldServer.addNewPlayer(entityPlayer);
-        final PlayerList playerList = mcServer.ac(); // mcServer.getPlayerList()
-        playerList.k.add(entityPlayer); // playerList().players.add(entityPlayer);
+        playerList.getPlayers().add(entityPlayer);
 
         // Get private playerByUUID Map from PlayerList class and add player to it
-        final Field playerByUUIDField = Reflector.getInaccessibleField(PlayerList.class, "l");
-        final Map<UUID, EntityPlayer> playerByUUID = (Map<UUID, EntityPlayer>) Reflector.getFieldValue(playerByUUIDField, playerList);
+        // private final Map<UUID, EntityPlayer> playersByUUID = Maps.newHashMap();
+        final Field playersByUUIDField = Reflector.getMapFieldWithTypes(PlayerList.class, UUID.class, ServerPlayer.class);
+        final Map<UUID, ServerPlayer> playerByUUID = (Map<UUID, ServerPlayer>) Reflector.getFieldValue(playersByUUIDField, playerList);
         playerByUUID.put(uuid, entityPlayer);
 
         bukkitPlayer = Bukkit.getPlayer(uuid);
-        final String joinMessage = "§e" + entityPlayer.displayName + " joined the game";
-        final PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(bukkitPlayer, CraftChatMessage.fromComponent(IChatBaseComponent.a(joinMessage)));
 
+        if(bukkitPlayer == null)
+            throw new RuntimeException("Bukkit player with UUID " + uuid + " not found!");
+
+        final String joinMessage = "§e" + entityPlayer.displayName + " joined the game";
+        final PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(bukkitPlayer, net.kyori.adventure.text.Component.text(joinMessage));
         Bukkit.getPluginManager().callEvent(playerJoinEvent);
 
-        // connection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, entityPlayer));
-        sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.a, entityPlayer));
-        // Spawn the player for the client
-        sendPacket(new PacketPlayOutNamedEntitySpawn(entityPlayer));
-        // Remove player name from tablist
-        sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.e));
+        // Let other client know player is there
+        sendPacket(new ClientboundPlayerInfoPacket(ClientboundPlayerInfoPacket.Action.ADD_PLAYER, entityPlayer));
 
-        // todo should probably cancel this task when we remove the player
-        // ServerPlayer.doTick() a.k.a. EntityPlayer.playerTick()
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(OCMMain.getInstance(), entityPlayer::k, 1, 1);
+        worldServer.addNewPlayer(entityPlayer);
+
+        // Send world info to player client
+        playerList.sendLevelInfo(entityPlayer, worldServer);
+        entityPlayer.sendServerStatus(playerList.getServer().getStatus());
+
+        // Spawn the player for the client
+        sendPacket(new ClientboundAddPlayerPacket(entityPlayer));
+
+        tickTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(OCMMain.getInstance(), entityPlayer::tick, 1, 1);
     }
 
     public void removePlayer() {
+        if(tickTaskId != null) Bukkit.getScheduler().cancelTask(tickTaskId);
+        tickTaskId = null;
+
         final MinecraftServer mcServer = ((CraftServer) Bukkit.getServer()).getServer();
-        final WorldServer worldServer = entityPlayer.x(); // entityPlayer.getWorld().getWorld().getHandle();
 
-        entityPlayer.a(StatisticList.j); // entityPlayer.a(StatisticList.LEAVE_GAME);
-
-        final PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(bukkitPlayer, "§e" + entityPlayer.displayName + " left the game");
-
+        final net.kyori.adventure.text.Component quitMessage = net.kyori.adventure.text.Component.text("§e" + entityPlayer.displayName + " left the game");
+        final PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(bukkitPlayer, quitMessage, PlayerQuitEvent.QuitReason.DISCONNECTED);
         Bukkit.getPluginManager().callEvent(playerQuitEvent);
 
-        entityPlayer.getBukkitEntity().disconnect(playerQuitEvent.getQuitMessage());
+        entityPlayer.getBukkitEntity().disconnect(quitMessage.toString());
 
-        if (!mcServer.at()) { // MinecraftServer.isNotMainThread()
-            // ServerPlayer.doTick() a.k.a. EntityPlayer.playerTick()
-            entityPlayer.l();
-        }
-
-        worldServer.a(entityPlayer, Entity.RemovalReason.a); //worldServer.removePlayer(entityPlayer);
-        entityPlayer.M().a(); //entityPlayer.getAdvancementData().a();
-
-        final PlayerList playerList = mcServer.ac(); // mcServer.getPlayerList()
-        playerList.k.remove(entityPlayer); // playerList().players.add(entityPlayer);
-
-        // Get private playerByUUID Map from PlayerList class and remove player from it
-        final Field playerByUUIDField = Reflector.getInaccessibleField(PlayerList.class, "l");
-        final Map<UUID, EntityPlayer> playerByUUID = (Map<UUID, EntityPlayer>) Reflector.getFieldValue(playerByUUIDField, playerList);
-        playerByUUID.remove(uuid);
-
-        // connection.sendPacket(new PacketPlayOutEntityDestroy(entityPlayer.getId()));
-        sendPacket(new PacketPlayOutEntityDestroy(uuid.hashCode()));
-        //connection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, entityPlayer));
-        sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.e, entityPlayer));
-
-        // PlayerList.save(EntityPlayer)
-        Method saveMethod = Reflector.getMethod(PlayerList.class, "b", "EntityPlayer");
-        saveMethod.setAccessible(true);
-        Reflector.invokeMethod(saveMethod, playerList, entityPlayer);
+        final PlayerList playerList = mcServer.getPlayerList();
+        playerList.remove(entityPlayer);
     }
 
     public void attack(org.bukkit.entity.Entity bukkitEntity) {
         bukkitPlayer.attack(bukkitEntity);
     }
 
-    //a(EnumItemSlot.Function.a, 0, 0, "mainhand"),
-    //b(EnumItemSlot.Function.a, 1, 5, "offhand"),
-    //c(EnumItemSlot.Function.b, 0, 1, "feet"),
-    //d(EnumItemSlot.Function.b, 1, 2, "legs"),
-    //e(EnumItemSlot.Function.b, 2, 3, "chest"),
-    //f(EnumItemSlot.Function.b, 3, 4, "head");
-
-    public void updateEquipment(EnumItemSlot slot, org.bukkit.inventory.ItemStack item) {
+    public void updateEquipment(EquipmentSlot slot, org.bukkit.inventory.ItemStack item) {
         //todo try directly accessing the player inventory
         // otherwise just set the attack value attribute instead
         // could check Citizen's code to see how they give weapons
         // might also just need to wait a tick
 
-        //final WorldServer worldServer = entityPlayer.x(); // entityPlayer.getWorld().getWorld().getHandle();
+        //final ServerLevel worldServer = entityPlayer.x(); // entityPlayer.getWorld().getWorld().getHandle();
         // worldServer.broadcastEntityEvent(Entity, byte)
 
-        //Defining the list of Pairs with EnumItemSlot and (NMS) ItemStack
-        final List<Pair<EnumItemSlot, ItemStack>> equipmentList = new ArrayList<>();
+        //Defining the list of Pairs with EquipmentSlot and (NMS) ItemStack
+        final List<Pair<EquipmentSlot, ItemStack>> equipmentList = new ArrayList<>();
         equipmentList.add(new Pair<>(slot, CraftItemStack.asNMSCopy(item)));
 
         //Creating the packet
-        final PacketPlayOutEntityEquipment entityEquipment = new PacketPlayOutEntityEquipment(bukkitPlayer.getEntityId(), equipmentList);
+        final ClientboundSetEquipmentPacket entityEquipment = new ClientboundSetEquipmentPacket(bukkitPlayer.getEntityId(), equipmentList);
         sendPacket(entityEquipment);
-        //         ((WorldServer) this.level).getChunkSource().broadcast(this, new PacketPlayOutEntityEquipment(this.getId(), list));
+        //         ((ServerLevel) this.level).getChunkSource().broadcast(this, new PacketPlayOutEntityEquipment(this.getId(), list));
     }
 
     private void sendPacket(Packet packet) {
         Bukkit.getOnlinePlayers().stream()
-                .map(p -> ((CraftPlayer) p).getHandle().b)
-                .forEach(connection -> connection.a(packet));
+                .map(p -> ((CraftPlayer) p).getHandle().connection)
+                .forEach(connection -> connection.send(packet));
     }
 
     /**
@@ -232,55 +204,15 @@ public class FakePlayer {
     public void doBlocking() {
         bukkitPlayer.getInventory().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.SHIELD));
 
-        final EntityLiving entityLiving = ((CraftLivingEntity) bukkitPlayer).getHandle();
-        // We can call EntityLiving.startUsingItem(InteractionHand arg0) which is c()
-        entityLiving.c(EnumHand.a); // a in main hand, b is off hand
+        final LivingEntity entityLiving = ((CraftLivingEntity) bukkitPlayer).getHandle();
+        entityLiving.startUsingItem(InteractionHand.MAIN_HAND);
+        // getUseDuration of SHIELD is 72000
         // For isBlocking to be true, useDuration - getUseItemRemainingTicks() must be >= 5
         // Which means we have to wait at least 5 ticks before user is actually blocking
         // Here we just set it manually
-        Field useItemRemainingField = Reflector.getField(EntityLiving.class, "bA"); // int useItemRemaining
-        Reflector.setFieldValue(useItemRemainingField, entityLiving, 10);
+        final ReflectionRemapper reflectionRemapper = ReflectionRemapper.forReobfMappingsInPaperJar();
+        final String remapped = reflectionRemapper.remapFieldName(LivingEntity.class, "useItemRemaining");
+        final Field useItemRemainingField = Reflector.getField(LivingEntity.class, remapped);
+        Reflector.setFieldValue(useItemRemainingField, entityLiving, 200);
     }
-
-    /*
-        Example of using DataWatcher
-        final DataWatcher dw = entityLiving.ai(); // getEntityData() is ai()
-        // Field aB in EntityHuman is EntityLiving's DataWatcherObject<Byte> DATA_LIVING_ENTITY_FLAGS
-        //final DataWatcherObject<Byte> dwo = (DataWatcherObject) Reflector.getFieldValue(Reflector.getField(EntityLiving.class, "aB"), entityLiving);
-        final DataWatcherObject<Byte> dwo = new DataWatcherObject<>(8, DataWatcherRegistry.a); // a is for BYTE
-        //final DataWatcher holdingShieldData = new DataWatcher(((CraftPlayer) bukkitPlayer).getHandle());
-        //final DataWatcherObject dataWatcherObject = new DataWatcherObject<>(6, DataWatcherRegistry.a);
-        //holdingShieldData.a(dataWatcherObject, 0); // a is define()
-
-        //byte handStateBitmask = 0x01; // Main hand is active
-
-        //dw.b(dwo, handStateBitmask); // b is set()
-
-        //final PacketPlayOutEntityMetadata metadataPacket = new PacketPlayOutEntityMetadata(bukkitPlayer.getEntityId(), dw, true);
-        //final PacketPlayOutAnimation packetPlayOutAnimation = new PacketPlayOutAnimation(entityPlayer, 0);
-        //sendPacket(metadataPacket);
-        //sendPacket(packetPlayOutAnimation);
-     */
-
-    /*
-    public void attack(org.bukkit.entity.Entity bukkitEntity) {
-        final CraftEntity craftEntity = ((CraftEntity) bukkitEntity);
-        final Entity nmsEntity = craftEntity.getHandle();
-        attack(nmsEntity);
-    }
-
-    public void attack(Entity entity) {
-        // ServerPlayer.attack(nmsEntity)
-        entityPlayer.d(entity);
-
-        final PacketPlayOutAnimation packetPlayOutAnimation = new PacketPlayOutAnimation(entityPlayer, 0);
-
-        // entityPlayer.getLevel()
-        final WorldServer worldServer = entityPlayer.x();
-        // worldServer.getChunkSource()
-        final ChunkProviderServer chunkProviderServer = worldServer.k();
-        // chunkProviderServer.broadcastAndSend(Entity, Packet)
-        chunkProviderServer.a(entityPlayer, packetPlayOutAnimation);
-    }
-     */
 }

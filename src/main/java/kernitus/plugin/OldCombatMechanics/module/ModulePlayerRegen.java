@@ -27,8 +27,8 @@ import java.util.WeakHashMap;
 public class ModulePlayerRegen extends OCMModule {
 
     private final Map<UUID, Long> healTimes = new WeakHashMap<>();
-    
-	public ModulePlayerRegen(OCMMain plugin) {
+
+    public ModulePlayerRegen(OCMMain plugin) {
         super(plugin, "old-player-regen");
     }
 
@@ -39,8 +39,8 @@ public class ModulePlayerRegen extends OCMModule {
             return;
 
         final Player p = (Player) e.getEntity();
+        if (!isEnabled(p)) return;
 
-        if (!isEnabled(p.getWorld())) return;
         final UUID playerId = p.getUniqueId();
 
         // We cancel the regen, but saturation and exhaustion need to be adjusted separately
