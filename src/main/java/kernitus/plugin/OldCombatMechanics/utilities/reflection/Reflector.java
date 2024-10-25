@@ -35,7 +35,7 @@ public class Reflector {
                 patchVersion = 0;
             }
         } catch (Exception e) {
-            System.err.println("Failed to load Reflector: " + e.getMessage());
+			e.printStackTrace();
         }
     }
 
