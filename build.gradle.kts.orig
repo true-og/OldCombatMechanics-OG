@@ -19,7 +19,12 @@ plugins {
 	id("eclipse")
 	// For ingametesting
     //id("io.papermc.paperweight.userdev") version "1.5.10"
+<<<<<<< HEAD
 	idea
+=======
+    idea
+    id("io.papermc.hangar-publish-plugin") version "0.1.2"
+>>>>>>> 35fe52505b42ea075ff6cb33a333398e386335b8
 }
 
 // Make sure javadocs are available to IDE
@@ -121,3 +126,62 @@ tasks.assemble {
     //dependsOn("reobfJar")
     dependsOn("shadowJar")
 }
+<<<<<<< HEAD
+=======
+
+// Function to execute Git commands
+fun executeGitCommand(vararg command: String): String {
+    val byteOut = ByteArrayOutputStream()
+    project.exec {
+        commandLine = listOf("git", *command)
+        standardOutput = byteOut
+    }
+    return byteOut.toString(Charsets.UTF_8.name()).trim()
+}
+
+// Function to get the latest commit message
+fun latestCommitMessage(): String {
+    return executeGitCommand("log", "-1", "--pretty=%B")
+}
+
+// Function to get the short commit hash
+fun getShortCommitHash(): String {
+    return executeGitCommand("rev-parse", "--short", "HEAD")
+}
+
+val versionString: String = project.version as String
+val isRelease: Boolean = !versionString.contains('-')
+
+val suffixedVersion: String = if (isRelease) {
+    versionString
+} else {
+    // Append the short commit hash to the version for snapshots
+    "$versionString+${getShortCommitHash()}"
+}
+
+// Use the latest commit message for the changelog
+val changelogContent: String = latestCommitMessage()
+
+tasks.register("printIsRelease") {
+    doLast {
+        val isRelease = !project.version.toString().contains('-')
+        println(if (isRelease) "true" else "false")
+    }
+}
+
+hangarPublish {
+    publications.register("plugin") {
+        version.set(suffixedVersion)
+        channel.set(if (isRelease) "Release" else "Snapshot")
+        id.set("OldCombatMechanics")
+        apiKey.set(System.getenv("HANGAR_API_TOKEN"))
+        changelog.set(System.getenv("HANGAR_CHANGELOG") ?: changelogContent)
+        platforms {
+            register(Platforms.PAPER) {
+                jar.set(tasks.shadowJar.flatMap { it.archiveFile })
+                platformVersions.set(paperVersion)
+            }
+        }
+    }
+}
+>>>>>>> 35fe52505b42ea075ff6cb33a333398e386335b8
