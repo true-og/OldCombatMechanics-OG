@@ -5,7 +5,6 @@
  */
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import io.papermc.hangarpublishplugin.model.Platforms
 import java.io.ByteArrayOutputStream
 
 val paperVersion: List<String> = (property("gameVersions") as String)

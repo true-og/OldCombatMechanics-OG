@@ -5,4 +5,4 @@
  */
 
 
-rootProject.name = "OldCombatMechanics"
+rootProject.name = "OldCombatMechanics-OG"
