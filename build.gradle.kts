@@ -14,7 +14,7 @@ val paperVersion: List<String> = (property("gameVersions") as String)
 
 plugins {
     `java-library`
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.gradleup.shadow") version "8.3.6"
 	id("eclipse")
 	// For ingametesting
     //id("io.papermc.paperweight.userdev") version "1.5.10"
