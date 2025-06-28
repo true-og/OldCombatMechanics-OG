@@ -3,5 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+package kernitus.plugin.OldCombatMechanics.utilities.potions
 
-rootProject.name = "OldCombatMechanics-OG"
+/** Hold information on duration of drinkable & splash version of a potion type */
+data class PotionDurations(val drinkable: Int, val splash: Int)

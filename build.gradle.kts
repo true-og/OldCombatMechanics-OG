@@ -5,20 +5,16 @@
  */
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import java.io.ByteArrayOutputStream
-
-val paperVersion: List<String> = (property("gameVersions") as String)
-        .split(",")
-        .map { it.trim() }
-
 
 plugins {
     `java-library`
     id("com.gradleup.shadow") version "8.3.6"
-	id("eclipse")
-	// For ingametesting
-    //id("io.papermc.paperweight.userdev") version "1.5.10"
-	idea
+    id("com.diffplug.spotless") version "7.0.4" // Import auto-formatter.
+    eclipse // Import eclipse plugin for IDE integration.
+    kotlin("jvm") version "2.1.21" // Import kotlin jvm plugin for kotlin/java integration.
+    // For ingametesting
+    // id("io.papermc.paperweight.userdev") version "1.5.10"
+    idea // Import intellij plugin for IDE integration.
 }
 
 // Make sure javadocs are available to IDE
@@ -46,7 +42,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.bstats:bstats-bukkit:3.0.2")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     // Shaded in by Bukkit
     compileOnly("io.netty:netty-all:4.1.106.Final")
     // Placeholder API
@@ -58,7 +54,7 @@ dependencies {
     // ProtocolLib
     compileOnly("com.comphenix.protocol:ProtocolLib:5.1.0")
 
-     //For ingametesting
+    // For ingametesting
     // Mojang mappings for NMS
     /*
     compileOnly("com.mojang:authlib:4.0.43")
@@ -69,7 +65,9 @@ dependencies {
 }
 
 group = "kernitus.plugin.OldCombatMechanics"
-version = "2.0.5-beta" // x-release-please-version
+
+version = "3.0.0-beta" // x-release-please-version
+
 description = "OldCombatMechanics"
 
 java {
@@ -80,32 +78,36 @@ java {
     }
 }
 
-sourceSets {
-    main {
-        java {
-            exclude("kernitus/plugin/OldCombatMechanics/tester/**")
-        }
+sourceSets { main { kotlin { exclude("kernitus/plugin/OldCombatMechanics/tester/**") } } }
+
+kotlin { jvmToolchain(17) }
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+        vendor = JvmVendorSpec.GRAAL_VM
+    }
+}
+
+spotless {
+    kotlin { ktfmt().kotlinlangStyle().configure { it.setMaxWidth(120) } }
+    kotlinGradle {
+        ktfmt().kotlinlangStyle().configure { it.setMaxWidth(120) }
+        target("build.gradle.kts", "settings.gradle.kts")
     }
 }
 
 // Substitute ${pluginVersion} in plugin.yml with version defined above
 tasks.named<Copy>("processResources") {
     inputs.property("pluginVersion", version)
-    filesMatching("plugin.yml") {
-        expand("pluginVersion" to version)
-    }
+    filesMatching("plugin.yml") { expand("pluginVersion" to version) }
 }
 
-tasks.withType<JavaCompile> {
-    options.encoding = "UTF-8"
-}
+tasks.withType<JavaCompile> { options.encoding = "UTF-8" }
 
 tasks.named<ShadowJar>("shadowJar") {
     dependsOn("jar")
     archiveFileName.set("${project.name}.jar")
-    dependencies {
-        relocate("org.bstats", "kernitus.plugin.OldCombatMechanics.lib.bstats")
-    }
 }
 
 // For ingametesting
@@ -117,6 +119,7 @@ tasks.reobfJar {
 
 tasks.assemble {
     // For ingametesting
-    //dependsOn("reobfJar")
+    // dependsOn("reobfJar")
+    dependsOn(tasks.spotlessApply)
     dependsOn("shadowJar")
 }

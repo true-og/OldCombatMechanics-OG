@@ -49,7 +49,7 @@ mode-messages:
   # Messages used when changing player mode
   # To disable any message, leave the corresponding string empty (e.g., mode-status: "").
   # This applies to all messages in the configuration.
-  mode-status: ""
+  mode-status: "&bYour current combat mode is: &7%s"
   message-usage: "&eYou can use &c/ocm mode <modeset> [player] &eto change modeset"
   invalid-modeset: "&cPlease specify a valid modeset!"
   invalid-player: "&cPlease specify a valid player!"
@@ -456,7 +456,7 @@ disable-crafting:
     - shield
   # Show the user a message if they try to craft a blacklisted item
   showMessage: true
-  message: "&cERROR: You cannot craft that item! &6To block, simply use your sword like in Minecraft 1.8."
+  message: "&cERROR: You cannot craft that item! &6To block, alt-click to deflect with your sword as in Minecraft 1.8."
 
 disable-offhand:
   # Disable the usage of the offhand
@@ -476,9 +476,13 @@ old-brewing-stand:
 
 no-lapis-enchantments:
   # Automatically adds lapis to enchantment tables upon opening
-  enabled: false
+  enabled: true
   # Whether to only allow this for players with oldcombatmechanics.nolapis permission
   usePermission: false
+
+disable-elytra:
+  # Do not allow players to wear elytra
+  enabled: false
 
 disable-enderpearl-cooldown:
   # Disables enderpearl cooldown
@@ -575,4 +579,4 @@ debug:
   enabled: false
 
 # DO NOT CHANGE THIS NUMBER AS IT WILL RESET YOUR CONFIG
-config-version: 66
+config-version: 67
