@@ -103,11 +103,12 @@ tasks.withType<JavaCompile> {
 }
 
 tasks.named<ShadowJar>("shadowJar") {
-    dependsOn("jar")
-    archiveFileName.set("${project.name}.jar")
-    dependencies {
-        relocate("com.cryptomorin.xseries", "kernitus.plugin.OldCombatMechanics.lib.xseries")
-    }
+    archiveClassifier.set("")
+    relocate("com.cryptomorin.xseries", "kernitus.plugin.OldCombatMechanics.lib.xseries")
+}
+
+tasks.named<Jar>("jar") {
+    enabled = false
 }
 
 // For ingametesting
@@ -186,4 +187,3 @@ hangarPublish {
         }
     }
 }
-
