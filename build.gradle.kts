@@ -47,7 +47,6 @@ repositories {
 }
 
 dependencies {
-    implementation("org.bstats:bstats-bukkit:3.0.2")
     // Shaded in by Bukkit
     compileOnly("io.netty:netty-all:4.1.106.Final")
     // Placeholder API
@@ -107,7 +106,6 @@ tasks.named<ShadowJar>("shadowJar") {
     dependsOn("jar")
     archiveFileName.set("${project.name}.jar")
     dependencies {
-        relocate("org.bstats", "kernitus.plugin.OldCombatMechanics.lib.bstats")
         relocate("com.cryptomorin.xseries", "kernitus.plugin.OldCombatMechanics.lib.xseries")
     }
 }

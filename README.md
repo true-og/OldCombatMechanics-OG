@@ -11,6 +11,10 @@
 
 ## by kernitus and Rayzr522
 
+
+**TrueOG Network 1.19.4 Branch**
+
+
 A performant Spigot/Paper plugin to configure combat-related mechanics for Minecraft 1.9 upwards.
 
 <hr/>
@@ -75,15 +79,3 @@ Features are grouped in `module`s as listed below, and can be individually confi
 ## 🔌 Plugin Compatibility
 Most plugins will work fine with OCM. Some are explicitly supported, including:
 - Placeholder API (see [wiki](https://github.com/kernitus/BukkitOldCombatMechanics/wiki/PlaceholderAPI) for details)
-
-## 🤝 Contributions
-
-If you are interested in contributing, please [check this page first](.github/CONTRIBUTING.md).
-<hr/>
-
-
-<a href="https://bstats.org/plugin/bukkit/OldCombatMechanics">
-    <img src="https://bstats.org/signatures/bukkit/OldCombatMechanics.svg" alt="bStats">
-</a>
-
-
