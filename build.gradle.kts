@@ -132,7 +132,7 @@ tasks.named<Jar>("jar") {
 
 val shadowJarTask =
     tasks.named<ShadowJar>("shadowJar") {
-        archiveFileName.set("${project.name}.jar")
+        archiveFileName.set("${project.name}-${pluginVersion}.jar")
         dependencies {
             exclude(dependency("org.jetbrains.kotlin:.*"))
             relocate("com.cryptomorin.xseries", "kernitus.plugin.OldCombatMechanics.lib.xseries")
