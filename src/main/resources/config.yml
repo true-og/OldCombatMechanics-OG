@@ -15,8 +15,20 @@ always_enabled_modules:
   # Each configurable module must appear in exactly one of: always_enabled_modules, disabled_modules, or a modeset.
   # Internal modules (modeset-listener, attack-cooldown-tracker, entity-damage-listener) are managed by the plugin and must not be listed.
   # If a module is listed in multiple sections or none, the plugin will throw an error.
+  # The legacy combat modules live here so the old mechanics remain enabled in every modeset.
+  - "disable-attack-cooldown"
   - "attack-frequency"
+  - "disable-sword-sweep"
+  - "old-tool-damage"
+  - "sword-blocking"
+  - "shield-damage-reduction"
+  - "old-golden-apples"
+  - "old-player-knockback"
+  - "old-player-regen"
+  - "old-armour-strength"
   - "old-armour-durability"
+  - "old-potion-effects"
+  - "old-critical-hits"
   - "old-fishing-knockback"
   - "fishing-rod-velocity"
   - "projectile-knockback"
@@ -37,24 +49,13 @@ disabled_modules:
 
 modesets:
   # Modesets are lists of modules that are enabled for a player in that mode.
+  # The built-in legacy modules are always enabled above, so these default modesets are retained only for compatibility/custom additions.
   # You can create, remove, and rename as many modesets as you like by modifying the list below.
   # When in PvP, the modeset of the attacker is checked first.
   # If not PvP, the modeset of the defending entity is checked.
   # PlaceholderAPI: %ocm_modeset%
-  old:
-    - "disable-attack-cooldown"
-    - "disable-sword-sweep"
-    - "old-tool-damage"
-    - "sword-blocking"
-    - "shield-damage-reduction"
-    - "old-golden-apples"
-    - "old-player-knockback"
-    - "old-player-regen"
-    - "old-armour-strength"
-    - "old-potion-effects"
-    - "old-critical-hits"
-  new:
-    - "old-golden-apples"
+  old: []
+  new: []
 
 worlds:
   # These are the modesets available in each world.
@@ -595,4 +596,4 @@ debug:
   enabled: false
 
 # DO NOT CHANGE THIS NUMBER AS IT WILL RESET YOUR CONFIG
-config-version: 72
+config-version: 73
