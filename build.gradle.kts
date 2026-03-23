@@ -126,9 +126,12 @@ tasks.withType<JavaCompile> {
     options.release.set(8)
 }
 
+tasks.named<Jar>("jar") {
+    enabled = false
+}
+
 val shadowJarTask =
     tasks.named<ShadowJar>("shadowJar") {
-        dependsOn("jar")
         archiveFileName.set("${project.name}.jar")
         dependencies {
             exclude(dependency("org.jetbrains.kotlin:.*"))
