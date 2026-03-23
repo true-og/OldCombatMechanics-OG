@@ -6,41 +6,166 @@
 package kernitus.plugin.OldCombatMechanics.module;
 
 import kernitus.plugin.OldCombatMechanics.OCMMain;
+import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.BrewingStand;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.inventory.BrewEvent;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
+import org.bukkit.inventory.ItemStack;
+
+import java.lang.reflect.Method;
+import java.util.Objects;
 
 /**
  * Makes brewing stands not require fuel.
  */
 public class ModuleOldBrewingStand extends OCMModule {
+    private static final int MAX_FUEL = 20;
+    private static final int FUEL_SLOT = 4;
+    private final Method setFuelLevelMethod;
 
     public ModuleOldBrewingStand(OCMMain plugin) {
         super(plugin, "old-brewing-stand");
+        setFuelLevelMethod = Reflector.getMethod(BrewingStand.class, "setFuelLevel", 1);
     }
 
     @EventHandler
-    public void onInventoryOpen(InventoryOpenEvent e) {
-        // Set max fuel when they open brewing stand
-        // If they run out, they can just close and open it again
-        if (!isEnabled(e.getPlayer())) return;
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        if (!isEnabled(event.getPlayer())) {
+            return;
+        }
+        restock(event.getView());
+    }
 
-        final Inventory inventory = e.getInventory();
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!isEnabled(event.getPlayer())) {
+            return;
+        }
+        restock(event.getView());
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof HumanEntity) || !isEnabled((HumanEntity) event.getWhoClicked())) {
+            return;
+        }
+
+        final InventoryView view = event.getView();
+        final Inventory topInventory = view.getTopInventory();
+        if (!isBrewingInventory(topInventory)) {
+            return;
+        }
+
+        if (hasFuelSlot(topInventory) && event.getRawSlot() == FUEL_SLOT) {
+            event.setCancelled(true);
+            restock(view);
+            return;
+        }
+
+        if (hasFuelSlot(topInventory)
+                && event.getClickedInventory() != null
+                && Objects.equals(event.getClickedInventory(), view.getBottomInventory())
+                && event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                && isBlazePowder(event.getCurrentItem())) {
+            event.setCancelled(true);
+            restock(view);
+            return;
+        }
+
+        Bukkit.getScheduler().runTask(plugin, () -> restock(view));
+    }
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof HumanEntity) || !isEnabled((HumanEntity) event.getWhoClicked())) {
+            return;
+        }
+
+        final InventoryView view = event.getView();
+        final Inventory topInventory = view.getTopInventory();
+        if (!isBrewingInventory(topInventory)) {
+            return;
+        }
+
+        if (hasFuelSlot(topInventory) && event.getRawSlots().contains(FUEL_SLOT)) {
+            event.setCancelled(true);
+            restock(view);
+            return;
+        }
+
+        Bukkit.getScheduler().runTask(plugin, () -> restock(view));
+    }
+
+    @EventHandler
+    public void onBrew(BrewEvent event) {
+        if (!isEnabled(event.getBlock().getWorld())) {
+            return;
+        }
+        restock(event.getBlock());
+    }
+
+    private void restock(InventoryView view) {
+        restock(view.getTopInventory());
+    }
+
+    private void restock(Inventory inventory) {
+        if (!isBrewingInventory(inventory)) {
+            return;
+        }
+
+        if (hasFuelSlot(inventory)) {
+            inventory.setItem(FUEL_SLOT, new ItemStack(Material.BLAZE_POWDER, 1));
+        }
+
         final Location location = inventory.getLocation();
-        if (location == null) return;
+        if (location == null) {
+            return;
+        }
 
-        final Block block = location.getBlock();
+        restock(location.getBlock());
+    }
+
+    private void restock(Block block) {
         final BlockState blockState = block.getState();
-
-        if (!(blockState instanceof BrewingStand)) return;
+        if (!(blockState instanceof BrewingStand)) {
+            return;
+        }
 
         final BrewingStand brewingStand = (BrewingStand) blockState;
+        if (setFuelLevelMethod != null) {
+            Reflector.invokeMethod(setFuelLevelMethod, brewingStand, MAX_FUEL);
+            brewingStand.update();
+        }
 
-        brewingStand.setFuelLevel(20);
-        brewingStand.update();
+        final Inventory inventory = brewingStand.getInventory();
+        if (hasFuelSlot(inventory)) {
+            inventory.setItem(FUEL_SLOT, new ItemStack(Material.BLAZE_POWDER, 1));
+        }
+    }
+
+    private static boolean isBrewingInventory(Inventory inventory) {
+        return inventory != null && inventory.getType() == InventoryType.BREWING;
+    }
+
+    private static boolean hasFuelSlot(Inventory inventory) {
+        return inventory != null && inventory.getSize() > FUEL_SLOT;
+    }
+
+    private static boolean isBlazePowder(ItemStack item) {
+        return item != null && item.getType() == Material.BLAZE_POWDER;
     }
 }
