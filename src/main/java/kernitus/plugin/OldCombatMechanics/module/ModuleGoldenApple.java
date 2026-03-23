@@ -8,7 +8,8 @@ package kernitus.plugin.OldCombatMechanics.module;
 import com.google.common.collect.ImmutableSet;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.utilities.Messenger;
-import kernitus.plugin.OldCombatMechanics.utilities.potions.PotionEffectTypeCompat;
+import com.cryptomorin.xseries.XMaterial;
+import com.cryptomorin.xseries.XPotion;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -31,7 +32,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-import static kernitus.plugin.OldCombatMechanics.versions.materials.MaterialRegistry.ENCHANTED_GOLDEN_APPLE;
 
 /**
  * Customise the golden apple effects.
@@ -44,9 +44,11 @@ public class ModuleGoldenApple extends OCMModule {
             PotionEffectType.REGENERATION);
     // Napple: absorption IV, regen II, fire resistance I, resistance I
     private static final Set<PotionEffectType> nappleEffects = ImmutableSet.of(PotionEffectType.ABSORPTION,
-            PotionEffectType.REGENERATION, PotionEffectType.FIRE_RESISTANCE, PotionEffectTypeCompat.RESISTANCE.get());
+            PotionEffectType.REGENERATION, PotionEffectType.FIRE_RESISTANCE, XPotion.RESISTANCE.get());
+    private static final XMaterial ENCHANTED_GOLDEN_APPLE = XMaterial.ENCHANTED_GOLDEN_APPLE;
     private List<PotionEffect> enchantedGoldenAppleEffects, goldenAppleEffects;
     private ShapedRecipe enchantedAppleRecipe;
+    private final Set<String> warnedUnknownEffectTypes = new HashSet<>();
 
     private Map<UUID, LastEaten> lastEaten;
     private Cooldown cooldown;
@@ -77,9 +79,9 @@ public class ModuleGoldenApple extends OCMModule {
         try {
             enchantedAppleRecipe = new ShapedRecipe(
                     new NamespacedKey(plugin, "MINECRAFT"),
-                    ENCHANTED_GOLDEN_APPLE.newInstance());
+                    createEnchantedGoldenApple());
         } catch (NoClassDefFoundError e) {
-            enchantedAppleRecipe = new ShapedRecipe(ENCHANTED_GOLDEN_APPLE.newInstance());
+            enchantedAppleRecipe = new ShapedRecipe(createEnchantedGoldenApple());
         }
         enchantedAppleRecipe
                 .shape("ggg", "gag", "ggg")
@@ -95,7 +97,7 @@ public class ModuleGoldenApple extends OCMModule {
 
     private void registerCrafting() {
         if (isEnabled() && module().getBoolean("enchanted-golden-apple-crafting")) {
-            if (!Bukkit.getRecipesFor(ENCHANTED_GOLDEN_APPLE.newInstance()).isEmpty())
+            if (!Bukkit.getRecipesFor(createEnchantedGoldenApple()).isEmpty())
                 return;
             Bukkit.addRecipe(enchantedAppleRecipe);
             debug("Added napple recipe");
@@ -109,8 +111,10 @@ public class ModuleGoldenApple extends OCMModule {
             return; // This should never ever ever ever run. If it does then you probably screwed
                     // something up.
 
-        if (ENCHANTED_GOLDEN_APPLE.isSame(item)) {
-            final HumanEntity player = e.getView().getPlayer();
+        if (isEnchantedGoldenApple(item)) {
+            final List<HumanEntity> viewers = e.getInventory().getViewers();
+            if (viewers.isEmpty()) return;
+            final HumanEntity player = viewers.get(0);
 
             if (isSettingEnabled("no-conflict-mode"))
                 return;
@@ -119,6 +123,8 @@ public class ModuleGoldenApple extends OCMModule {
                 e.getInventory().setResult(null);
         }
     }
+
+    // Intentionally avoid InventoryView#getPlayer() to prevent class/interface mismatch on 1.12.
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onItemConsume(PlayerItemConsumeEvent e) {
@@ -131,7 +137,7 @@ public class ModuleGoldenApple extends OCMModule {
         final Material consumedMaterial = originalItem.getType();
 
         if (consumedMaterial != Material.GOLDEN_APPLE &&
-                !ENCHANTED_GOLDEN_APPLE.isSame(originalItem))
+                !isEnchantedGoldenApple(originalItem))
             return;
 
         final UUID uuid = player.getUniqueId();
@@ -178,9 +184,9 @@ public class ModuleGoldenApple extends OCMModule {
         // Save player's current potion effects
         final Collection<PotionEffect> previousPotionEffects = player.getActivePotionEffects();
 
-        final List<PotionEffect> newEffects = ENCHANTED_GOLDEN_APPLE.isSame(originalItem) ? enchantedGoldenAppleEffects
+        final List<PotionEffect> newEffects = isEnchantedGoldenApple(originalItem) ? enchantedGoldenAppleEffects
                 : goldenAppleEffects;
-        final Set<PotionEffectType> defaultEffects = ENCHANTED_GOLDEN_APPLE.isSame(originalItem) ? nappleEffects
+        final Set<PotionEffectType> defaultEffects = isEnchantedGoldenApple(originalItem) ? nappleEffects
                 : gappleEffects;
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -197,6 +203,8 @@ public class ModuleGoldenApple extends OCMModule {
     }
 
     private void applyEffects(LivingEntity target, List<PotionEffect> newEffects) {
+        final boolean forceOverride = !kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector
+                .versionIsNewerOrEqualTo(1, 13, 0);
         for (PotionEffect newEffect : newEffects) {
             // Find the existing effect of the same type with the highest amplifier
             final PotionEffect highestExistingEffect = target.getActivePotionEffects().stream()
@@ -207,13 +215,21 @@ public class ModuleGoldenApple extends OCMModule {
             if (highestExistingEffect != null) {
                 // If the new effect has a higher amplifier, apply it
                 if (newEffect.getAmplifier() > highestExistingEffect.getAmplifier()) {
-                    target.addPotionEffect(newEffect);
+                    if (forceOverride) {
+                        target.addPotionEffect(newEffect, true);
+                    } else {
+                        target.addPotionEffect(newEffect);
+                    }
                 }
                 // If the amplifiers are the same and the new effect has a longer duration,
                 // refresh the duration
                 else if (newEffect.getAmplifier() == highestExistingEffect.getAmplifier() &&
                         newEffect.getDuration() > highestExistingEffect.getDuration()) {
-                    target.addPotionEffect(newEffect);
+                    if (forceOverride) {
+                        target.addPotionEffect(newEffect, true);
+                    } else {
+                        target.addPotionEffect(newEffect);
+                    }
                 }
                 // If the new effect has a lower amplifier or shorter/equal duration, do nothing
             } else {
@@ -221,6 +237,21 @@ public class ModuleGoldenApple extends OCMModule {
                 target.addPotionEffect(newEffect);
             }
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    private ItemStack createEnchantedGoldenApple() {
+        final ItemStack parsed = ENCHANTED_GOLDEN_APPLE.parseItem();
+        if (parsed != null) {
+            return parsed;
+        }
+        final ItemStack legacy = new ItemStack(Material.GOLDEN_APPLE, 1);
+        legacy.setDurability((short) 1);
+        return legacy;
+    }
+
+    private boolean isEnchantedGoldenApple(ItemStack item) {
+        return item != null && ENCHANTED_GOLDEN_APPLE.isSimilar(item);
     }
 
     private List<PotionEffect> getPotionEffects(String path) {
@@ -231,8 +262,15 @@ public class ModuleGoldenApple extends OCMModule {
             final int duration = sect.getInt(key + ".duration") * 20; // Convert seconds to ticks
             final int amplifier = sect.getInt(key + ".amplifier");
 
-            final PotionEffectType type = PotionEffectTypeCompat.fromNewName(key);
-            Objects.requireNonNull(type, String.format("Invalid potion effect type '%s'!", key));
+            final PotionEffectType type = XPotion.matchXPotion(key)
+                    .map(XPotion::get)
+                    .orElse(null);
+            if (type == null) {
+                if (warnedUnknownEffectTypes.add(key)) {
+                    Messenger.warn("[%s] Unknown potion effect '%s' in %s; skipping", getModuleName(), key, path);
+                }
+                continue;
+            }
 
             final PotionEffect fx = new PotionEffect(type, duration, amplifier);
             appleEffects.add(fx);
@@ -286,7 +324,7 @@ public class ModuleGoldenApple extends OCMModule {
         private Instant lastEnchantedEaten;
 
         private Optional<Instant> getForItem(ItemStack item) {
-            return ENCHANTED_GOLDEN_APPLE.isSame(item)
+            return ENCHANTED_GOLDEN_APPLE.isSimilar(item)
                     ? Optional.ofNullable(lastEnchantedEaten)
                     : Optional.ofNullable(lastNormalEaten);
         }
@@ -303,7 +341,7 @@ public class ModuleGoldenApple extends OCMModule {
         }
 
         private void setForItem(ItemStack item) {
-            if (ENCHANTED_GOLDEN_APPLE.isSame(item)) {
+            if (ENCHANTED_GOLDEN_APPLE.isSimilar(item)) {
                 lastEnchantedEaten = Instant.now();
             } else {
                 lastNormalEaten = Instant.now();
@@ -311,12 +349,22 @@ public class ModuleGoldenApple extends OCMModule {
         }
     }
 
-    private record Cooldown(long normal, long enchanted, boolean sharedCooldown) {
-        private long getCooldownForItem(ItemStack item) {
-            return ENCHANTED_GOLDEN_APPLE.isSame(item) ? enchanted : normal;
+    private static class Cooldown {
+        private final long normal;
+        private final long enchanted;
+        private final boolean sharedCooldown;
+
+        private Cooldown(long normal, long enchanted, boolean sharedCooldown) {
+            this.normal = normal;
+            this.enchanted = enchanted;
+            this.sharedCooldown = sharedCooldown;
         }
 
-        boolean isOnCooldown(ItemStack item, LastEaten lastEaten) {
+        private long getCooldownForItem(ItemStack item) {
+            return ENCHANTED_GOLDEN_APPLE.isSimilar(item) ? enchanted : normal;
+        }
+
+        private boolean isOnCooldown(ItemStack item, LastEaten lastEaten) {
             return (sharedCooldown ? lastEaten.getNewestEatTime() : lastEaten.getForItem(item))
                     .map(it -> ChronoUnit.SECONDS.between(it, Instant.now()))
                     .map(it -> it < getCooldownForItem(item))

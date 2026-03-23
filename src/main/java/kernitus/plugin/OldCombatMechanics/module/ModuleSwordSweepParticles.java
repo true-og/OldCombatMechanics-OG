@@ -5,24 +5,23 @@
  */
 package kernitus.plugin.OldCombatMechanics.module;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListenerAbstract;
+import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.particle.Particle;
+import com.github.retrooper.packetevents.protocol.particle.type.ParticleTypes;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerParticle;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.utilities.Messenger;
-import org.bukkit.plugin.Plugin;
-
-import java.util.Locale;
+import org.bukkit.entity.Player;
 
 /**
  * A module to disable the sweep attack.
  */
 public class ModuleSwordSweepParticles extends OCMModule {
 
-    private final ProtocolManager protocolManager = plugin.getProtocolManager();
-    private final ParticleListener particleListener = new ParticleListener(plugin);
+    private final ParticleListener particleListener = new ParticleListener();
 
     public ModuleSwordSweepParticles(OCMMain plugin) {
         super(plugin, "disable-sword-sweep-particles");
@@ -33,39 +32,43 @@ public class ModuleSwordSweepParticles extends OCMModule {
     @Override
     public void reload() {
         if (isEnabled())
-            protocolManager.addPacketListener(particleListener);
+            PacketEvents.getAPI().getEventManager().registerListener(particleListener);
         else
-            protocolManager.removePacketListener(particleListener);
+            PacketEvents.getAPI().getEventManager().unregisterListener(particleListener);
     }
 
     /**
      * Hides sweep particles.
      */
-    private class ParticleListener extends PacketAdapter {
+    private class ParticleListener extends PacketListenerAbstract {
 
         private boolean disabledDueToError;
 
-        public ParticleListener(Plugin plugin) {
-            super(plugin, PacketType.Play.Server.WORLD_PARTICLES);
-        }
-
         @Override
-        public void onPacketSending(PacketEvent packetEvent) {
-            if (disabledDueToError || !isEnabled(packetEvent.getPlayer().getWorld()))
+        public void onPacketSend(PacketSendEvent packetEvent) {
+            if (disabledDueToError || packetEvent.isCancelled())
                 return;
 
             try {
-                final PacketContainer packetContainer = packetEvent.getPacket();
-                String particleName;
-                try {
-                    particleName = packetContainer.getNewParticles().read(0).getParticle().name();
-                } catch (Exception exception) {
-                    particleName = packetContainer.getParticles().read(0).name(); // for pre 1.13
-                }
+                if (!PacketType.Play.Server.PARTICLE.equals(packetEvent.getPacketType()))
+                    return;
 
-                if (particleName.toUpperCase(Locale.ROOT).contains("SWEEP")) {
+                final Object playerObject = packetEvent.getPlayer();
+                if (!(playerObject instanceof Player))
+                    return;
+
+                final Player player = (Player) playerObject;
+                if (!isEnabled(player))
+                    return;
+
+                WrapperPlayServerParticle wrapper = new WrapperPlayServerParticle(packetEvent);
+                Particle<?> particle = wrapper.getParticle();
+                if (particle == null || particle.getType() == null)
+                    return;
+
+                if (particle.getType() == ParticleTypes.SWEEP_ATTACK) {
                     packetEvent.setCancelled(true);
-                    debug("Cancelled sweep particles", packetEvent.getPlayer());
+                    debug("Cancelled sweep particles", player);
                 }
             } catch (Exception | ExceptionInInitializerError e) {
                 disabledDueToError = true;

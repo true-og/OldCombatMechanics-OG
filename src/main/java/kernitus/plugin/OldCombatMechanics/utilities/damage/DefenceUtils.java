@@ -7,12 +7,13 @@
 package kernitus.plugin.OldCombatMechanics.utilities.damage;
 
 import com.cryptomorin.xseries.XAttribute;
-import kernitus.plugin.OldCombatMechanics.utilities.potions.PotionEffectTypeCompat;
+import com.cryptomorin.xseries.XEnchantment;
+import com.cryptomorin.xseries.XPotion;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.SpigotFunctionChooser;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.VersionCompatUtils;
-import kernitus.plugin.OldCombatMechanics.versions.enchantments.EnchantmentCompat;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.LivingEntity;
@@ -22,6 +23,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -55,6 +57,8 @@ public class DefenceUtils {
             EntityDamageEvent.DamageCause.DRAGON_BREATH
     // In 1.19 FIRE bypasses armour, but it doesn't in 1.8 so we don't add it here
     );
+    private static final Set<String> warnedUnknownArmourEnchants = new HashSet<>();
+    private static final Set<Enchantment> VANILLA_ENCHANTMENTS = initVanillaEnchantments();
 
     // Stalagmite ignores armour but other blocks under CONTACT do not, explicitly
     // checked below
@@ -116,8 +120,8 @@ public class DefenceUtils {
             // Apply resistance effect
             if (damageModifiers.containsKey(EntityDamageEvent.DamageModifier.RESISTANCE) &&
                     damageCause != EntityDamageEvent.DamageCause.VOID &&
-                    damagedEntity.hasPotionEffect(PotionEffectTypeCompat.RESISTANCE.get())) {
-                final int level = damagedEntity.getPotionEffect(PotionEffectTypeCompat.RESISTANCE.get()).getAmplifier()
+                    damagedEntity.hasPotionEffect(XPotion.RESISTANCE.get())) {
+                final int level = damagedEntity.getPotionEffect(XPotion.RESISTANCE.get()).getAmplifier()
                         + 1;
                 // Make sure we don't go over 100% protection
                 final double resistanceReductionFactor = Math.min(1.0, level * REDUCTION_PER_RESISTANCE_LEVEL);
@@ -178,8 +182,8 @@ public class DefenceUtils {
                 - (ARMOUR_IGNORING_CAUSES.contains(damageCause) ? 0 : (baseDamage * reductionFactor));
 
         // Calculate resistance
-        if (defender.hasPotionEffect(PotionEffectTypeCompat.RESISTANCE.get())) {
-            int resistanceLevel = defender.getPotionEffect(PotionEffectTypeCompat.RESISTANCE.get()).getAmplifier() + 1;
+        if (defender.hasPotionEffect(XPotion.RESISTANCE.get())) {
+            int resistanceLevel = defender.getPotionEffect(XPotion.RESISTANCE.get()).getAmplifier() + 1;
             finalDamage *= 1.0 - (resistanceLevel * 0.2);
         }
 
@@ -229,6 +233,7 @@ public class DefenceUtils {
         int totalEpf = 0;
         for (ItemStack armourItem : armourContents) {
             if (armourItem != null && armourItem.getType() != Material.AIR) {
+                warnOnUnknownArmourEnchantments(armourItem);
                 for (EnchantmentType enchantmentType : EnchantmentType.values()) {
                     if (!enchantmentType.protectsAgainst(cause))
                         continue;
@@ -253,6 +258,62 @@ public class DefenceUtils {
         totalEpf = Math.min(20, totalEpf);
 
         return REDUCTION_PER_ARMOUR_POINT * totalEpf;
+    }
+
+    private static void warnOnUnknownArmourEnchantments(ItemStack armourItem) {
+        if (armourItem.getEnchantments().isEmpty()) {
+            return;
+        }
+        for (Enchantment enchantment : armourItem.getEnchantments().keySet()) {
+            if (enchantment == null || isModelledArmourEnchantment(enchantment)) {
+                continue;
+            }
+            if (!shouldWarnOnUnknownEnchantment(enchantment)) {
+                continue;
+            }
+            final String name = enchantment.getName();
+            if (warnedUnknownArmourEnchants.add(name)) {
+                kernitus.plugin.OldCombatMechanics.utilities.Messenger.warn(
+                        "Armour enchantment '%s' is not modelled by OCM damage reduction; results may differ",
+                        name);
+            }
+        }
+    }
+
+    private static boolean shouldWarnOnUnknownEnchantment(Enchantment enchantment) {
+        try {
+            final NamespacedKey key = enchantment.getKey();
+            if (key != null) {
+                return !"minecraft".equals(key.getNamespace());
+            }
+        } catch (NoSuchMethodError | NoClassDefFoundError ignored) {
+            // Legacy servers do not expose NamespacedKey; fall back to known vanilla list.
+        }
+        return !isVanillaEnchantment(enchantment);
+    }
+
+    private static Set<Enchantment> initVanillaEnchantments() {
+        final Set<Enchantment> enchantments = new HashSet<>();
+        for (XEnchantment xEnchantment : XEnchantment.values()) {
+            final Enchantment enchantment = xEnchantment.getEnchant();
+            if (enchantment != null) {
+                enchantments.add(enchantment);
+            }
+        }
+        return enchantments;
+    }
+
+    private static boolean isVanillaEnchantment(Enchantment enchantment) {
+        return VANILLA_ENCHANTMENTS.contains(enchantment);
+    }
+
+    private static boolean isModelledArmourEnchantment(Enchantment enchantment) {
+        for (EnchantmentType enchantmentType : EnchantmentType.values()) {
+            if (enchantmentType.getEnchantment().equals(enchantment)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private enum EnchantmentType {
@@ -281,7 +342,7 @@ public class DefenceUtils {
 
             return damageCauses;
         },
-                0.75, EnchantmentCompat.PROTECTION.get()),
+                0.75, XEnchantment.PROTECTION.getEnchant()),
         FIRE_PROTECTION(() -> {
             EnumSet<EntityDamageEvent.DamageCause> damageCauses = EnumSet.of(
                     EntityDamageEvent.DamageCause.FIRE,
@@ -293,14 +354,14 @@ public class DefenceUtils {
             }
 
             return damageCauses;
-        }, 1.25, EnchantmentCompat.FIRE_PROTECTION.get()),
+        }, 1.25, XEnchantment.FIRE_PROTECTION.getEnchant()),
         BLAST_PROTECTION(() -> EnumSet.of(
                 EntityDamageEvent.DamageCause.ENTITY_EXPLOSION,
-                EntityDamageEvent.DamageCause.BLOCK_EXPLOSION), 1.5, EnchantmentCompat.BLAST_PROTECTION.get()),
+                EntityDamageEvent.DamageCause.BLOCK_EXPLOSION), 1.5, XEnchantment.BLAST_PROTECTION.getEnchant()),
         PROJECTILE_PROTECTION(() -> EnumSet.of(
-                EntityDamageEvent.DamageCause.PROJECTILE), 1.5, EnchantmentCompat.PROJECTILE_PROTECTION.get()),
+                EntityDamageEvent.DamageCause.PROJECTILE), 1.5, XEnchantment.PROJECTILE_PROTECTION.getEnchant()),
         FALL_PROTECTION(() -> EnumSet.of(
-                EntityDamageEvent.DamageCause.FALL), 2.5, EnchantmentCompat.FEATHER_FALLING.get());
+                EntityDamageEvent.DamageCause.FALL), 2.5, XEnchantment.FEATHER_FALLING.getEnchant());
 
         private final Set<EntityDamageEvent.DamageCause> protection;
         private final double typeModifier;

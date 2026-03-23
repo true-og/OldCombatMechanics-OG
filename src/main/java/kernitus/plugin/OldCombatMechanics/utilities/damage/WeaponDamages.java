@@ -5,6 +5,7 @@
  */
 package kernitus.plugin.OldCombatMechanics.utilities.damage;
 
+import com.cryptomorin.xseries.XMaterial;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.utilities.ConfigUtils;
 import org.bukkit.Material;
@@ -34,11 +35,20 @@ public class WeaponDamages {
         return damages.getOrDefault(name, -1.0);
     }
 
+    public static double getDamage(String key) {
+        return damages.getOrDefault(key, -1.0);
+    }
+
     public static Map<Material, Double> getMaterialDamages() {
         final Map<Material, Double> materialMap = new HashMap<>();
         damages.forEach((name, damage) -> {
             final String newName = name.replace("GOLD", "GOLDEN").replace("WOOD", "WOODEN").replace("SPADE", "SHOVEL");
-            materialMap.put(Material.valueOf(newName), damage);
+            XMaterial.matchXMaterial(newName).ifPresent(xmaterial -> {
+                final Material material = xmaterial.parseMaterial();
+                if (material != null) {
+                    materialMap.put(material, damage);
+                }
+            });
         });
         return materialMap;
     }

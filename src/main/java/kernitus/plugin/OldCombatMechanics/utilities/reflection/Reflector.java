@@ -5,7 +5,6 @@
  */
 package kernitus.plugin.OldCombatMechanics.utilities.reflection;
 
-import kernitus.plugin.OldCombatMechanics.utilities.reflection.type.ClassType;
 import org.bukkit.Bukkit;
 
 import java.lang.reflect.*;
@@ -69,10 +68,6 @@ public class Reflector {
         return patchVersion;
     }
 
-    public static Class<?> getClass(ClassType type, String name) {
-        return getClass(type.qualifyClassName(name));
-    }
-
     public static Class<?> getClass(String fqn) {
         try {
             return Class.forName(fqn);
@@ -82,24 +77,36 @@ public class Reflector {
     }
 
     public static Method getMethod(Class<?> clazz, String name) {
-        return Arrays.stream(clazz.getMethods())
+        return Stream.concat(
+                        Arrays.stream(clazz.getDeclaredMethods()),
+                        Arrays.stream(clazz.getMethods())
+                )
                 .filter(method -> method.getName().equals(name))
+                .peek(method -> method.setAccessible(true))
                 .findFirst()
                 .orElse(null);
     }
 
     public static Method getMethod(Class<?> clazz, String name, int parameterCount) {
-        return Arrays.stream(clazz.getMethods())
+        return Stream.concat(
+                        Arrays.stream(clazz.getDeclaredMethods()),
+                        Arrays.stream(clazz.getMethods())
+                )
                 .filter(method -> method.getName().equals(name) && method.getParameterCount() == parameterCount)
+                .peek(method -> method.setAccessible(true))
                 .findFirst()
                 .orElse(null);
     }
 
     public static Method getMethod(Class<?> clazz, Class<?> returnType, String... parameterTypeSimpleNames){
         List<String> typeNames = Arrays.asList(parameterTypeSimpleNames);
-        return Arrays.stream(clazz.getMethods())
+        return Stream.concat(
+                        Arrays.stream(clazz.getDeclaredMethods()),
+                        Arrays.stream(clazz.getMethods())
+                )
                 .filter(method -> method.getReturnType() == returnType)
                 .filter(it -> getParameterNames.apply(it).equals(typeNames))
+                .peek(method -> method.setAccessible(true))
                 .findFirst()
                 .orElse(null);
     }
@@ -118,6 +125,23 @@ public class Reflector {
                 )
                 .filter(it -> it.getName().equals(name))
                 .filter(it -> getParameterNames.apply(it).equals(typeNames))
+                .peek(it -> it.setAccessible(true))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Finds a method by name where the provided parameter types are assignable to the method parameters.
+     * Null entries in {@code parameterTypes} act as wildcards.
+     */
+    public static Method getMethodAssignable(Class<?> clazz, String name, Class<?>... parameterTypes) {
+        return Stream.concat(
+                        Arrays.stream(clazz.getDeclaredMethods()),
+                        Arrays.stream(clazz.getMethods())
+                )
+                .filter(it -> it.getName().equals(name))
+                .filter(it -> it.getParameterCount() == parameterTypes.length)
+                .filter(it -> areParametersAssignable(it.getParameterTypes(), parameterTypes))
                 .peek(it -> it.setAccessible(true))
                 .findFirst()
                 .orElse(null);
@@ -270,6 +294,58 @@ public class Reflector {
                 .peek(it -> it.setAccessible(true))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Finds a constructor where the provided parameter types are assignable to the constructor parameters.
+     * Null entries in {@code parameterTypes} act as wildcards.
+     */
+    public static Constructor<?> getConstructorAssignable(Class<?> clazz, Class<?>... parameterTypes) {
+        return Stream.concat(
+                        Arrays.stream(clazz.getDeclaredConstructors()),
+                        Arrays.stream(clazz.getConstructors())
+                )
+                .filter(constructor -> constructor.getParameterCount() == parameterTypes.length)
+                .filter(constructor -> areParametersAssignable(constructor.getParameterTypes(), parameterTypes))
+                .peek(it -> it.setAccessible(true))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Attempts to resolve an enum constant by name, trying each provided name in order.
+     */
+    public static Object getEnumConstant(Class<?> enumClass, String... names) {
+        if (!enumClass.isEnum()) {
+            throw new IllegalArgumentException(enumClass.getName() + " is not an enum");
+        }
+        @SuppressWarnings("unchecked")
+        Class<? extends Enum> typedEnum = (Class<? extends Enum>) enumClass;
+        for (String name : names) {
+            if (name == null) continue;
+            try {
+                return Enum.valueOf(typedEnum, name);
+            } catch (IllegalArgumentException ignored) {
+                // try next
+            }
+            for (Object constant : enumClass.getEnumConstants()) {
+                Enum<?> enumConstant = (Enum<?>) constant;
+                if (enumConstant.name().equalsIgnoreCase(name) || enumConstant.toString().equals(name)) {
+                    return enumConstant;
+                }
+            }
+        }
+        throw new IllegalArgumentException("No enum constant found in " + enumClass.getName());
+    }
+
+    private static boolean areParametersAssignable(Class<?>[] target, Class<?>[] provided) {
+        if (target.length != provided.length) return false;
+        for (int i = 0; i < target.length; i++) {
+            Class<?> providedType = provided[i];
+            if (providedType == null) continue;
+            if (!target[i].isAssignableFrom(providedType)) return false;
+        }
+        return true;
     }
 
     /**

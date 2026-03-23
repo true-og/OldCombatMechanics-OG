@@ -7,6 +7,7 @@ package kernitus.plugin.OldCombatMechanics.utilities.damage;
 
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.module.OCMModule;
+import kernitus.plugin.OldCombatMechanics.module.ModuleSwordBlocking;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HumanEntity;
@@ -15,21 +16,27 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-
 import java.util.Map;
 import java.util.UUID;
-import java.util.WeakHashMap;
+import java.util.HashMap;
+import java.util.Iterator;
 
 public class EntityDamageByEntityListener extends OCMModule {
 
     private static EntityDamageByEntityListener INSTANCE;
     private boolean enabled;
     private final Map<UUID, Double> lastDamages;
+    private final Map<UUID, Long> lastDamageExpiryTicks;
+    private long tickCounter;
+    private int expirySweepTaskId = -1;
+    private static final long EXPIRY_SWEEP_INTERVAL_TICKS = 20L;
+    private static final long MIN_LAST_DAMAGE_TTL_TICKS = 20L;
 
     public EntityDamageByEntityListener(OCMMain plugin) {
         super(plugin, "entity-damage-listener");
         INSTANCE = this;
-        lastDamages = new WeakHashMap<>();
+        lastDamages = new HashMap<>();
+        lastDamageExpiryTicks = new HashMap<>();
     }
 
     public static EntityDamageByEntityListener getINSTANCE() {
@@ -43,6 +50,51 @@ public class EntityDamageByEntityListener extends OCMModule {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+        if (enabled) {
+            startExpirySweeperIfNeeded();
+        } else {
+            stopExpirySweeperIfNeeded();
+            lastDamages.clear();
+            lastDamageExpiryTicks.clear();
+        }
+    }
+
+    private void startExpirySweeperIfNeeded() {
+        if (expirySweepTaskId != -1) return;
+        expirySweepTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+            tickCounter++;
+            if (tickCounter % EXPIRY_SWEEP_INTERVAL_TICKS != 0) return;
+            sweepExpiredEntries();
+        }, 1L, 1L);
+    }
+
+    private void stopExpirySweeperIfNeeded() {
+        if (expirySweepTaskId == -1) return;
+        Bukkit.getScheduler().cancelTask(expirySweepTaskId);
+        expirySweepTaskId = -1;
+    }
+
+    private void touchExpiry(LivingEntity damagee) {
+        final UUID uuid = damagee.getUniqueId();
+        // Some implementations / test setups set maximumNoDamageTicks to 0, but damage immunity bookkeeping can
+        // still matter for a short period (e.g. cancelled fire ticks during invulnerability). Keep a small minimum.
+        final long delayTicks = Math.max(MIN_LAST_DAMAGE_TTL_TICKS, damagee.getMaximumNoDamageTicks());
+        final long candidateExpiry = tickCounter + delayTicks;
+        final Long existingExpiry = lastDamageExpiryTicks.get(uuid);
+        if (existingExpiry == null || candidateExpiry > existingExpiry) {
+            lastDamageExpiryTicks.put(uuid, candidateExpiry);
+        }
+    }
+
+    private void sweepExpiredEntries() {
+        final Iterator<Map.Entry<UUID, Long>> it = lastDamageExpiryTicks.entrySet().iterator();
+        while (it.hasNext()) {
+            final Map.Entry<UUID, Long> entry = it.next();
+            if (entry.getValue() > tickCounter) continue;
+            final UUID uuid = entry.getKey();
+            it.remove();
+            lastDamages.remove(uuid);
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -54,14 +106,22 @@ public class EntityDamageByEntityListener extends OCMModule {
             if (!(damagee instanceof LivingEntity)) return;
             final LivingEntity livingDamagee = ((LivingEntity) damagee);
 
+            final Double storedDamage = lastDamages.get(livingDamagee.getUniqueId());
+            debug("Non-entity damage before restore: lastDamage=" + livingDamagee.getLastDamage()
+                    + " stored=" + storedDamage, livingDamagee);
+            debug("Non-entity damage before restore: lastDamage=" + livingDamagee.getLastDamage()
+                    + " stored=" + storedDamage);
+
             restoreLastDamage(livingDamagee);
+            debug("Non-entity damage after restore: lastDamage=" + livingDamagee.getLastDamage(), livingDamagee);
+            debug("Non-entity damage after restore: lastDamage=" + livingDamagee.getLastDamage());
 
             double newDamage = event.getDamage(); // base damage, before defence calculations
 
             // Overdamage due to immunity
             // Invulnerability will cause less damage if they attack with a stronger weapon while vulnerable
             // That is, the difference in damage will be dealt, but only if new attack is stronger than previous one
-            checkOverdamage(livingDamagee, event, newDamage);
+            newDamage = checkOverdamage(livingDamagee, event, newDamage);
 
             if (newDamage < 0) {
                 debug("Damage was " + newDamage + " setting to 0");
@@ -149,6 +209,20 @@ public class EntityDamageByEntityListener extends OCMModule {
             newDamage += enchantmentDamage;
             debug("Mob " + e.getMobEnchantmentsDamage() + " Sharp: " + e.getSharpnessDamage() + " Scaled: " + enchantmentDamage, damager);
 
+            // Paper sword blocking (consumable-based, no shield)
+            final ModuleSwordBlocking swordBlocking = ModuleSwordBlocking.getInstance();
+            double paperBlockReduction = 0;
+            if (event instanceof EntityDamageByEntityEvent && swordBlocking != null) {
+                paperBlockReduction = swordBlocking.applyPaperBlockingReduction((EntityDamageByEntityEvent) event, newDamage);
+                if (paperBlockReduction > 0) {
+                    final double preBlockDamage = newDamage;
+                    newDamage = Math.max(0, newDamage - paperBlockReduction);
+                    ((EntityDamageByEntityEvent) event).setDamage(EntityDamageEvent.DamageModifier.BLOCKING, -paperBlockReduction);
+                    ((EntityDamageByEntityEvent) event).setDamage(EntityDamageEvent.DamageModifier.BASE, preBlockDamage);
+                    debug("Sword block (Paper): " + preBlockDamage + " - " + paperBlockReduction + " = " + newDamage, damager);
+                }
+            }
+
             if (damagee instanceof LivingEntity) {
                 // Overdamage due to immunity
                 // Invulnerability will cause less damage if they attack with a stronger weapon while vulnerable
@@ -162,8 +236,13 @@ public class EntityDamageByEntityListener extends OCMModule {
                 newDamage = 0;
             }
 
-            // Set damage, this should scale effects in the 1.9 way in case some of our modules are disabled
-            event.setDamage(newDamage);
+            // Set damage; if we already populated modifiers for blocking, avoid overwriting BASE.
+            if (paperBlockReduction > 0 && event instanceof EntityDamageByEntityEvent) {
+                ((EntityDamageByEntityEvent) event).setDamage(EntityDamageEvent.DamageModifier.BASE, newDamage + paperBlockReduction);
+                // BLOCKING was set earlier; total damage is BASE + BLOCKING (+ others)
+            } else {
+                event.setDamage(newDamage);
+            }
             debug("New Damage: " + newDamage, damager);
             debug("Attack damage (before defence): " + newDamage);
         }
@@ -180,7 +259,7 @@ public class EntityDamageByEntityListener extends OCMModule {
         final Entity damagee = event.getEntity();
 
         if (event instanceof EntityDamageByEntityEvent) {
-            if (lastDamages.containsKey(damagee.getUniqueId())) {
+            if (damagee instanceof LivingEntity && lastDamages.containsKey(damagee.getUniqueId())) {
                 // Set last damage to 0, so we can detect attacks even by weapons with a weaker attack value than what OCM would calculate
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     ((LivingEntity) damagee).setLastDamage(0);
@@ -190,7 +269,16 @@ public class EntityDamageByEntityListener extends OCMModule {
             }
         } else {
             // if not EDBYE then we leave last damage as is
-            lastDamages.remove(damagee.getUniqueId());
+            if (damagee instanceof LivingEntity) {
+                final LivingEntity livingDamagee = (LivingEntity) damagee;
+                if ((float) livingDamagee.getNoDamageTicks() > (float) livingDamagee.getMaximumNoDamageTicks() / 2.0F
+                        && lastDamages.containsKey(livingDamagee.getUniqueId())) {
+                    debug("Non-entity damage inside invulnerability window, keeping stored last damage", livingDamagee);
+                    debug("Non-entity damage inside invulnerability window, keeping stored last damage");
+                    return;
+                }
+                clearStoredDamage(livingDamagee);
+            }
             debug("Non-entity damage, using default last damage", damagee);
             debug("Non-entity damage, using default last damage");
         }
@@ -202,33 +290,58 @@ public class EntityDamageByEntityListener extends OCMModule {
      * @param damagee The living entity to try to restore the last damage for
      */
     private void restoreLastDamage(LivingEntity damagee) {
-        final Double lastStoredDamage = lastDamages.get(damagee.getUniqueId());
+        final Double lastStoredDamage = resolveStoredDamage(damagee);
         if (lastStoredDamage != null) {
             final LivingEntity livingDamagee = damagee;
             livingDamagee.setLastDamage(lastStoredDamage);
+            lastDamages.put(livingDamagee.getUniqueId(), lastStoredDamage);
+            touchExpiry(livingDamagee);
             debug("Set last damage back to " + lastStoredDamage, livingDamagee);
             debug("Set last damage back to " + lastStoredDamage);
+        } else {
+            debug("No stored last damage to restore", damagee);
+            debug("No stored last damage to restore");
         }
     }
 
     private double checkOverdamage(LivingEntity livingDamagee, EntityDamageEvent event, double newDamage) {
-        final double newLastDamage = newDamage;
+        final double incomingDamage = newDamage; // base damage (before defence), used for baseline tracking
+        final double newLastDamage = Math.max(0, incomingDamage);
 
+        /*
+         * Vanilla 1.12 EntityLiving#damageEntity(DamageSource, float) flow:
+         * - If noDamageTicks > maxNoDamageTicks / 2:
+         *     - If damage <= lastDamage -> return false (cancel)
+         *     - Else call damageEntity0(source, damage - lastDamage)
+         *     - Then lastDamage = damage
+         * - Else:
+         *     - Call damageEntity0(source, damage)
+         *     - lastDamage = damage
+         *     - Set noDamageTicks = maxNoDamageTicks, etc.
+         *
+         * This means any successful fire tick overwrites lastDamage, so we must restore
+         * the correct baseline before applying our overdamage checks.
+         */
         if ((float) livingDamagee.getNoDamageTicks() > (float) livingDamagee.getMaximumNoDamageTicks() / 2.0F) {
             // Last damage was either set to correct value above in this listener, or we're using the server's value
             // If other plugins later modify BASE damage, they should either be taking last damage into account,
             // or ignoring the event if it is cancelled
-            final double lastDamage = livingDamagee.getLastDamage();
+            final Double storedDamage = resolveStoredDamage(livingDamagee);
+            final double lastDamage = storedDamage != null ? storedDamage : livingDamagee.getLastDamage();
             if (newDamage <= lastDamage) {
                 event.setDamage(0);
                 event.setCancelled(true);
                 debug("Was fake overdamage, cancelling " + newDamage + " <= " + lastDamage);
+                // Do not overwrite the stored baseline with this cancelled damage (e.g. fire tick),
+                // otherwise the next attack can incorrectly bypass immunity.
+                lastDamages.put(livingDamagee.getUniqueId(), lastDamage);
+                touchExpiry(livingDamagee);
                 return 0;
             }
 
             debug("Overdamage: " + newDamage + " - " + lastDamage);
             // We must subtract previous damage from new weapon damage for this attack
-            newDamage -= livingDamagee.getLastDamage();
+            newDamage -= lastDamage;
 
             debug("Last damage " + lastDamage + " new damage: " + newLastDamage + " applied: " + newDamage
                     + " ticks: " + livingDamagee.getNoDamageTicks() + " /" + livingDamagee.getMaximumNoDamageTicks()
@@ -237,9 +350,26 @@ public class EntityDamageByEntityListener extends OCMModule {
         // Update the last damage done, including when it was overdamage.
         // This means attacks must keep increasing in value during immunity period to keep dealing overdamage.
         lastDamages.put(livingDamagee.getUniqueId(), newLastDamage);
+        touchExpiry(livingDamagee);
 
         return newDamage;
     }
 
+    private Double resolveStoredDamage(LivingEntity damagee) {
+        final UUID uuid = damagee.getUniqueId();
+        final Long expiresAtTick = lastDamageExpiryTicks.get(uuid);
+        if (expiresAtTick != null && expiresAtTick <= tickCounter) {
+            lastDamageExpiryTicks.remove(uuid);
+            lastDamages.remove(uuid);
+            return null;
+        }
+        return lastDamages.get(uuid);
+    }
+
+    private void clearStoredDamage(LivingEntity damagee) {
+        final UUID uuid = damagee.getUniqueId();
+        lastDamageExpiryTicks.remove(uuid);
+        lastDamages.remove(uuid);
+    }
 
 }

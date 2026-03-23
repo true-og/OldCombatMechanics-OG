@@ -10,19 +10,40 @@
 #                                                                           #
 # ###########################################################################
 
+always_enabled_modules:
+  # Modules listed here are always enabled, regardless of modeset.
+  # Each configurable module must appear in exactly one of: always_enabled_modules, disabled_modules, or a modeset.
+  # Internal modules (modeset-listener, attack-cooldown-tracker, entity-damage-listener) are managed by the plugin and must not be listed.
+  # If a module is listed in multiple sections or none, the plugin will throw an error.
+  - "attack-frequency"
+  - "old-armour-durability"
+  - "old-fishing-knockback"
+  - "fishing-rod-velocity"
+  - "projectile-knockback"
+  - "disable-crafting"
+  - "old-brewing-stand"
+  - "disable-enderpearl-cooldown"
+  - "disable-offhand"
+  - "disable-sword-sweep-particles"
+  - "disable-attack-sounds"
+  - "old-burn-delay"
+  - "attack-range"
+
+disabled_modules:
+  # Modules listed here are always disabled, regardless of modeset.
+  # Of course, disabling a module which disables something will enable that something!
+  - "chorus-fruit"
+  - "update-checker"
+
 modesets:
   # Modesets are lists of modules that are enabled for a player in that mode.
-  # Modules not listed in any modeset are assumed to always be available.
   # You can create, remove, and rename as many modesets as you like by modifying the list below.
   # When in PvP, the modeset of the attacker is checked first.
   # If not PvP, the modeset of the defending entity is checked.
-  # Of course, the module must also be enabled in its own config section.
-  # Sample below has modules enabled for "old" combat modeset and disabled for "new" combat modeset
   # PlaceholderAPI: %ocm_modeset%
   old:
     - "disable-attack-cooldown"
     - "disable-sword-sweep"
-    - "disable-offhand"
     - "old-tool-damage"
     - "sword-blocking"
     - "shield-damage-reduction"
@@ -43,8 +64,6 @@ worlds:
   world: [ "old" ]
   world_nether: [ "old" ]
   world_the_end: [ "old" ]
-  # old_world: ["old"]
-  # brave_new_world: ["new"]
 
 mode-messages:
   # Messages used when changing player mode
@@ -73,16 +92,34 @@ attack-frequency:
   playerDelay: 18
   mobDelay: 16
 
+attack-range:
+  # Applies 1.8-style hit detection (smaller hitbox margin, shorter creative reach).
+  # Paper 1.21.11+ only; auto-disables on older/Paperless servers.
+  # Note: this module re-applies reach when items are held and strips it when swapping/dropping to avoid tainting stored items.
+  # Very frequent hotbar swapping may have a small performance cost.
+  min-range: 0.0
+  max-range: 3.0
+  min-creative-range: 0.0
+  max-creative-range: 4.0
+  hitbox-margin: 0.1
+  mob-factor: 1.0
+
 old-tool-damage:
   # This is to set the tool damage as in pre-1.9
   # IMPORTANT: Also enable disable-sword-sweep module or sweeps will have the damage value of the weapon in hand
-  # NOTE: this will modify the damage, however the item tooltip will still show the 1.9+ damage
+  # NOTE: this will modify the damage, however the vanilla attribute tooltip will still show the 1.9+ values.
+  # The tooltip section below is enabled by default so players can see the configured damage in-game.
   enabled: true
   # Use old sharpness calculations, i.e. each level adds 1.25 damage
   # In 1.9+, sharpness adds 1 + 0.5 * level damage
   old-sharpness: true
-  # Damage values shown in 1.9 representation (actual damage)
-  # In 1.8 the damage tooltip value would be added to 1 'base damage', yielding the values below
+  tooltip:
+    # Optionally adds a lore line showing the configured damage from old-tool-damage.damages (the actual damage OCM applies).
+    # This is a cosmetic helper to reduce confusion, but can interact with other plugins that rewrite item lore.
+    enabled: true
+    prefix: "OCM Damage:"
+  # Damage values are in 1.9+ "actual damage" terms (1 damage = half a heart).
+  # In 1.8, the client tooltip showed "+X Attack Damage", where X = (actual_damage - 1) because the base unarmed damage is 1.
   damages:
     # Axe damages
     GOLD_AXE: 4
@@ -119,6 +156,9 @@ old-tool-damage:
     IRON_HOE: 1
     DIAMOND_HOE: 1
     NETHERITE_HOE: 1
+    # Trident and mace
+    TRIDENT: 8
+    TRIDENT_THROWN: 8
 
 old-critical-hits:
   # Makes critical hits work like in 1.8
@@ -182,7 +222,11 @@ shield-damage-reduction:
 
 sword-blocking:
   # This is to allow players to block with swords again, by getting a shield while they hold right click with a sword
+  # Paper 1.20.5+ uses a consumable-based blocking animation. Older/Paperless servers fall back to an offhand shield.
   enabled: true
+  # With ViaVersion, clients older than 1.20.5 will also fall back to the shield behaviour.
+  # Set to false to disable the Paper animation path entirely and always use the legacy shield fallback.
+  paper-animation: true
   # How often, in ticks, OCM should check if the player is still blocking with a shield, and remove it if not
   # If this is too fast, the player will have their shield disappear before they're able to block again causing a slight delay
   # If this is too slow, players will have a shield in their hand well after they've stopped blocking
@@ -193,12 +237,11 @@ sword-blocking:
 
 disable-sword-sweep:
   # This is to disable the sword sweep attack
-  # With ProtocolLib, particle effect is also removed
-  enabled: true
+  # With PacketEvents, particle effect is also removed
 
 disable-sword-sweep-particles:
   # This is to disable the sword sweep attack particles
-  # Requires ProtocolLib
+  # Requires PacketEvents
   enabled: true
 
 # ########################
@@ -513,7 +556,7 @@ old-burn-delay:
 
 disable-attack-sounds:
   # Disables attack sounds that were added with 1.9+
-  # Requires ProtocolLib
+  # Requires PacketEvents
   enabled: true
   # The sounds that will be blocked by this module
   blocked-sound-names:
@@ -527,7 +570,7 @@ disable-attack-sounds:
 # SPECIAL SETTINGS BELOW #
 # ########################
 
-message-prefix: "&6[OldCombatMechanics]&r"
+message-prefix: "&7[&6OCM&7]&r"
 
 # This is to toggle the update checker
 update-checker:
@@ -552,4 +595,4 @@ debug:
   enabled: false
 
 # DO NOT CHANGE THIS NUMBER AS IT WILL RESET YOUR CONFIG
-config-version: 67
+config-version: 72

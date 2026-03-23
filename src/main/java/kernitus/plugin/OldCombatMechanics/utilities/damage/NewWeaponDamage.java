@@ -25,7 +25,12 @@ public enum NewWeaponDamage {
     // post-1.13 values
     WOODEN_SWORD(4), WOODEN_SHOVEL(2.5F), WOODEN_PICKAXE(2), WOODEN_AXE(7), WOODEN_HOE(1),
     GOLDEN_SWORD(4), GOLDEN_SHOVEL(2.5F), GOLDEN_PICKAXE(2), GOLDEN_AXE(7), GOLDEN_HOE(1),
-    NETHERITE_SWORD(8), NETHERITE_SHOVEL(6.5F), NETHERITE_PICKAXE(6), NETHERITE_AXE(10), NETHERITE_HOE(1);
+    COPPER_SWORD(5), COPPER_SHOVEL(3.5F), COPPER_PICKAXE(3), COPPER_AXE(9), COPPER_HOE(1),
+    NETHERITE_SWORD(8), NETHERITE_SHOVEL(6.5F), NETHERITE_PICKAXE(6), NETHERITE_AXE(10), NETHERITE_HOE(1),
+
+    // Weapons introduced after 1.13
+    TRIDENT(8), // vanilla thrown + melee base (before impaling)
+    MACE(6);    // vanilla base damage; fall bonus is added separately in NMS
 
     private final float damage;
 
@@ -39,6 +44,18 @@ public enum NewWeaponDamage {
 
     public static float getDamage(Material mat) {
         return getDamage(mat.toString());
+    }
+
+    public static Float getDamageOrNull(String mat) {
+        try {
+            return valueOf(mat).damage;
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    public static Float getDamageOrNull(Material mat) {
+        return getDamageOrNull(mat.toString());
     }
 
     public float getDamage() {
