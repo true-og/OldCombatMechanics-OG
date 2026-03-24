@@ -8,6 +8,7 @@ package kernitus.plugin.OldCombatMechanics.module;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -34,11 +35,14 @@ import java.util.Objects;
 public class ModuleOldBrewingStand extends OCMModule {
     private static final int MAX_FUEL = 20;
     private static final int FUEL_SLOT = 4;
+    private static final String BREWING_STAND_TITLE = ChatColor.GOLD + "Brewing Stand";
     private final Method setFuelLevelMethod;
+    private final Method setCustomNameMethod;
 
     public ModuleOldBrewingStand(OCMMain plugin) {
         super(plugin, "old-brewing-stand");
         setFuelLevelMethod = Reflector.getMethod(BrewingStand.class, "setFuelLevel", 1);
+        setCustomNameMethod = Reflector.getMethod(BrewingStand.class, "setCustomName", 1);
     }
 
     @EventHandler
@@ -139,8 +143,16 @@ public class ModuleOldBrewingStand extends OCMModule {
         }
 
         final BrewingStand brewingStand = (BrewingStand) blockState;
+        boolean updated = false;
+        if (setCustomNameMethod != null) {
+            Reflector.invokeMethod(setCustomNameMethod, brewingStand, BREWING_STAND_TITLE);
+            updated = true;
+        }
         if (setFuelLevelMethod != null) {
             Reflector.invokeMethod(setFuelLevelMethod, brewingStand, MAX_FUEL);
+            updated = true;
+        }
+        if (updated) {
             brewingStand.update();
         }
 
