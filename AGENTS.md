@@ -258,3 +258,4 @@ This file captures repo-specific context discovered while working on this branch
 - Refactor phase: cleanups only; keep behavior unchanged and tests green.
 - Validate phase: rerun tests and do a human sanity check before declaring done.
 - `ModuleOldBrewingStand` now sets the brewing stand custom name to a gold `Brewing Stand` title (`&6`/`§6`) during restock so the coloured title is visible across legacy and modern clients.
+- `ModuleOldBrewingStand` now sets the brewing-stand inventory view title via reflective `InventoryView#setTitle` (when available) using the same `§6Brewing Stand` formatting, so clients from 1.8 through 1.21.11 consistently see a coloured title while legacy versions still rely on the custom-name path.

@@ -8,7 +8,6 @@ package kernitus.plugin.OldCombatMechanics.module;
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -24,6 +23,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 
 import java.lang.reflect.Method;
@@ -35,14 +35,16 @@ import java.util.Objects;
 public class ModuleOldBrewingStand extends OCMModule {
     private static final int MAX_FUEL = 20;
     private static final int FUEL_SLOT = 4;
-    private static final String BREWING_STAND_TITLE = ChatColor.GOLD + "Brewing Stand";
+    private static final String BREWING_STAND_TITLE = "\u00A76Brewing Stand";
     private final Method setFuelLevelMethod;
     private final Method setCustomNameMethod;
+    private final Method setInventoryViewTitleMethod;
 
     public ModuleOldBrewingStand(OCMMain plugin) {
         super(plugin, "old-brewing-stand");
         setFuelLevelMethod = Reflector.getMethod(BrewingStand.class, "setFuelLevel", 1);
         setCustomNameMethod = Reflector.getMethod(BrewingStand.class, "setCustomName", 1);
+        setInventoryViewTitleMethod = Reflector.getMethod(InventoryView.class, "setTitle", 1);
     }
 
     @EventHandler
@@ -50,6 +52,7 @@ public class ModuleOldBrewingStand extends OCMModule {
         if (!isEnabled(event.getPlayer())) {
             return;
         }
+        setBrewingViewTitle(event.getView());
         restock(event.getInventory());
     }
 
@@ -172,5 +175,13 @@ public class ModuleOldBrewingStand extends OCMModule {
 
     private static boolean isBlazePowder(ItemStack item) {
         return item != null && item.getType() == Material.BLAZE_POWDER;
+    }
+
+    private void setBrewingViewTitle(InventoryView view) {
+        if (setInventoryViewTitleMethod == null || view == null || !isBrewingInventory(view.getTopInventory())) {
+            return;
+        }
+
+        Reflector.invokeMethod(setInventoryViewTitleMethod, view, BREWING_STAND_TITLE);
     }
 }

@@ -26,6 +26,7 @@ import java.util.concurrent.Callable
 
 @OptIn(ExperimentalKotest::class)
 class OldBrewingStandIntegrationTest : FunSpec({
+    val expectedBrewingTitle = "\u00A76Brewing Stand"
     val testPlugin = JavaPlugin.getPlugin(OCMTestMain::class.java)
     val module = ModuleLoader.getModules()
         .filterIsInstance<ModuleOldBrewingStand>()
@@ -62,6 +63,13 @@ class OldBrewingStandIntegrationTest : FunSpec({
 
     fun openBrewingView() = runSync {
         player.openInventory(brewingStand.inventory)
+    }
+
+    fun viewTitle(view: org.bukkit.inventory.InventoryView): String {
+        val titleMethod = view.javaClass.methods.firstOrNull {
+            it.name == "getTitle" && it.parameterCount == 0
+        } ?: error("InventoryView#getTitle not available for brewing stand test")
+        return titleMethod.invoke(view) as String
     }
 
     extensions(MainThreadDispatcherExtension(testPlugin))
@@ -133,6 +141,14 @@ class OldBrewingStandIntegrationTest : FunSpec({
             event.isCancelled.shouldBeTrue()
             topInventory.getItem(4)?.type shouldBe Material.BLAZE_POWDER
             fuelLevel(brewingStand.block.state as BrewingStand)?.let { it shouldBe 20 }
+        }
+    }
+
+    test("brewing stand title uses coloured formatting") {
+        val view = openBrewingView()
+
+        runSync {
+            viewTitle(view) shouldBe expectedBrewingTitle
         }
     }
 })
