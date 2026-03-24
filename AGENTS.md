@@ -257,3 +257,4 @@ This file captures repo-specific context discovered while working on this branch
 - Green phase: only touch production code. Do not modify tests.
 - Refactor phase: cleanups only; keep behavior unchanged and tests green.
 - Validate phase: rerun tests and do a human sanity check before declaring done.
+- `ModuleOldBrewingStand` now sets the brewing stand custom name to a gold `Brewing Stand` title (`&6`/`§6`) during restock so the coloured title is visible across legacy and modern clients.
