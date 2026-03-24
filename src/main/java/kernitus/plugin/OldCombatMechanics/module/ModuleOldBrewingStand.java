@@ -23,7 +23,6 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 
 import java.lang.reflect.Method;
@@ -47,7 +46,7 @@ public class ModuleOldBrewingStand extends OCMModule {
         if (!isEnabled(event.getPlayer())) {
             return;
         }
-        restock(event.getView());
+        restock(event.getInventory());
     }
 
     @EventHandler
@@ -55,7 +54,7 @@ public class ModuleOldBrewingStand extends OCMModule {
         if (!isEnabled(event.getPlayer())) {
             return;
         }
-        restock(event.getView());
+        restock(event.getInventory());
     }
 
     @EventHandler
@@ -64,29 +63,28 @@ public class ModuleOldBrewingStand extends OCMModule {
             return;
         }
 
-        final InventoryView view = event.getView();
-        final Inventory topInventory = view.getTopInventory();
+        final Inventory topInventory = event.getInventory();
         if (!isBrewingInventory(topInventory)) {
             return;
         }
 
         if (hasFuelSlot(topInventory) && event.getRawSlot() == FUEL_SLOT) {
             event.setCancelled(true);
-            restock(view);
+            restock(topInventory);
             return;
         }
 
         if (hasFuelSlot(topInventory)
                 && event.getClickedInventory() != null
-                && Objects.equals(event.getClickedInventory(), view.getBottomInventory())
+                && Objects.equals(event.getClickedInventory(), event.getWhoClicked().getInventory())
                 && event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
                 && isBlazePowder(event.getCurrentItem())) {
             event.setCancelled(true);
-            restock(view);
+            restock(topInventory);
             return;
         }
 
-        Bukkit.getScheduler().runTask(plugin, () -> restock(view));
+        Bukkit.getScheduler().runTask(plugin, () -> restock(topInventory));
     }
 
     @EventHandler
@@ -95,19 +93,18 @@ public class ModuleOldBrewingStand extends OCMModule {
             return;
         }
 
-        final InventoryView view = event.getView();
-        final Inventory topInventory = view.getTopInventory();
+        final Inventory topInventory = event.getInventory();
         if (!isBrewingInventory(topInventory)) {
             return;
         }
 
         if (hasFuelSlot(topInventory) && event.getRawSlots().contains(FUEL_SLOT)) {
             event.setCancelled(true);
-            restock(view);
+            restock(topInventory);
             return;
         }
 
-        Bukkit.getScheduler().runTask(plugin, () -> restock(view));
+        Bukkit.getScheduler().runTask(plugin, () -> restock(topInventory));
     }
 
     @EventHandler
@@ -116,10 +113,6 @@ public class ModuleOldBrewingStand extends OCMModule {
             return;
         }
         restock(event.getBlock());
-    }
-
-    private void restock(InventoryView view) {
-        restock(view.getTopInventory());
     }
 
     private void restock(Inventory inventory) {
