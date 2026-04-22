@@ -31,6 +31,7 @@ plugins {
     id("com.gradleup.shadow") version "9.3.0"
     id("xyz.jpenilla.run-paper") version "3.0.2"
     idea
+    eclipse
     id("io.papermc.hangar-publish-plugin") version "0.1.4"
 }
 
@@ -54,8 +55,6 @@ repositories {
     maven("https://repo.codemc.io/repository/maven-snapshots/")
     // Placeholder API
     maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
-    // CodeMC Repo for bStats
-    maven("https://repo.codemc.org/repository/maven-public/")
     // Auth library from Minecraft
     maven("https://libraries.minecraft.net/")
 }
@@ -99,7 +98,6 @@ configurations.named("integrationTestCompileClasspath") {
 }
 
 dependencies {
-    implementation("org.bstats:bstats-bukkit:3.1.0")
     // Shaded in by Bukkit
     compileOnly("io.netty:netty-all:4.1.130.Final")
     // Placeholder API
@@ -126,16 +124,6 @@ dependencies {
 
     // Integration test dependencies
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.0")
-    add("integrationTestImplementation", "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.0")
-    add("integrationTestImplementation", "org.jetbrains.kotlin:kotlin-test:2.3.0")
-    add("integrationTestImplementation", "org.jetbrains.kotlin:kotlin-reflect:2.3.0")
-    add("integrationTestImplementation", "io.kotest:kotest-runner-junit5-jvm:5.9.1")
-    add("integrationTestImplementation", "io.kotest:kotest-assertions-core-jvm:5.9.1")
-    add("integrationTestImplementation", "net.kyori:adventure-api:4.26.1")
-    add("integrationTestImplementation", "xyz.jpenilla:reflection-remapper:0.1.3")
-    add("integrationTestCompileOnly", "org.spigotmc:spigot-api:1.21.11-R0.1-SNAPSHOT")
-    add("integrationTestCompileOnly", "com.mojang:authlib:6.0.54")
-    add("integrationTestCompileOnly", "io.netty:netty-all:4.1.130.Final")
 }
 
 // Substitute ${pluginVersion} in plugin.yml with version defined above
@@ -160,13 +148,16 @@ tasks.withType<JavaCompile> {
     options.release.set(8)
 }
 
+tasks.named<Jar>("jar") {
+    enabled = false
+}
+
 val shadowJarTask =
     tasks.named<ShadowJar>("shadowJar") {
         dependsOn("jar")
         archiveFileName.set("${project.name}.jar")
         dependencies {
             exclude(dependency("org.jetbrains.kotlin:.*"))
-            relocate("org.bstats", "kernitus.plugin.OldCombatMechanics.lib.bstats")
             relocate("com.cryptomorin.xseries", "kernitus.plugin.OldCombatMechanics.lib.xseries")
             relocate("com.github.retrooper.packetevents", "kernitus.plugin.OldCombatMechanics.lib.packetevents.api")
             relocate("io.github.retrooper.packetevents", "kernitus.plugin.OldCombatMechanics.lib.packetevents.impl")

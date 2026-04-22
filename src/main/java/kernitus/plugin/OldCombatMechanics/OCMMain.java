@@ -20,9 +20,6 @@ import kernitus.plugin.OldCombatMechanics.utilities.damage.EntityDamageByEntityL
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.Reflector;
 import kernitus.plugin.OldCombatMechanics.utilities.storage.ModesetListener;
 import kernitus.plugin.OldCombatMechanics.utilities.storage.PlayerStorage;
-import org.bstats.bukkit.Metrics;
-import org.bstats.charts.SimpleBarChart;
-import org.bstats.charts.SimplePie;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.EventException;
@@ -94,37 +91,6 @@ public class OCMMain extends JavaPlugin {
 
         Config.reload();
 
-        // BStats Metrics
-        final Metrics metrics = new Metrics(this, 53);
-
-        metrics.addCustomChart(new SimplePie("server_software", () -> {
-            final String name = Bukkit.getServer().getName();
-            if (name == null || name.isEmpty()) return "Unknown";
-            final String cleaned = name.split("\\s", 2)[0].trim();
-            return cleaned.isEmpty() ? "Unknown" : cleaned;
-        }));
-
-        // Simple bar chart (kept in case bStats re-enables bar display)
-        metrics.addCustomChart(
-                new SimpleBarChart(
-                        "enabled_modules",
-                        () -> ModuleLoader.getModules().stream()
-                                .filter(OCMModule::isEnabled)
-                                .collect(Collectors.toMap(OCMModule::toString, module -> 1))));
-
-        // Pie chart of enabled/disabled for each module
-        ModuleLoader.getModules().forEach(module -> metrics.addCustomChart(
-                new SimplePie(module.getModuleName() + "_pie",
-                        () -> module.isEnabled() ? "enabled" : "disabled")));
-
-        // Simple pie: exact count of enabled modules per server (as a string key).
-        metrics.addCustomChart(new SimplePie("enabled_modules_count", () -> {
-            int count = (int) ModuleLoader.getModules().stream().filter(OCMModule::isEnabled).count();
-            return Integer.toString(count);
-        }));
-
-        enableListeners.forEach(Runnable::run);
-
         // Properly handle Plugman load/unload.
         final List<RegisteredListener> joinListeners = Arrays
                 .stream(PlayerJoinEvent.getHandlerList().getRegisteredListeners())
@@ -154,10 +120,6 @@ public class OCMMain extends JavaPlugin {
         if (Config.moduleEnabled("update-checker"))
             Bukkit.getScheduler().runTaskLaterAsynchronously(this,
                     () -> new UpdateChecker(this).performUpdate(), 20L);
-
-        metrics.addCustomChart(new SimplePie("auto_update_pie",
-                () -> Config.moduleSettingEnabled("update-checker",
-                        "auto-update") ? "enabled" : "disabled"));
 
     }
 

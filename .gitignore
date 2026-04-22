@@ -20,7 +20,6 @@ builds
 target
 META-INF
 /build/
-/gradle/
 /.gradle/
 .gradle-user/
 /.gradle-cache/

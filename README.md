@@ -11,6 +11,10 @@
 
 ## by kernitus and Rayzr522
 
+
+**TrueOG Network 1.19.4 Branch**
+
+
 Fine‑tune Minecraft combat, movement, and item balance without breaking your server. OldCombatMechanics is a free, open‑source toolkit for Spigot & Paper that lets you mix 1.8‑style snappiness with modern features, per world and per player.
 
 **Why servers pick OCM** ✨
@@ -107,12 +111,12 @@ Oftentimes a particular bug fix or feature has already been implemented, but a n
 yet. You can find the most up-to-date version of the plugin
 on [Hangar](https://hangar.papermc.io/kernitus/OldCombatMechanics/versions?channel=Snapshot&platform=PAPER).
 
-
-## 🤝 Contributions
-If you are interested in contributing, please [check this page first](.github/CONTRIBUTING.md).
-<hr/>
-
-
-<a href="https://bstats.org/plugin/bukkit/OldCombatMechanics">
-    <img src="https://bstats.org/signatures/bukkit/OldCombatMechanics.svg" alt="bStats">
-</a>
+(??)
+(??)## 🤝 Contributions
+(??)If you are interested in contributing, please [check this page first](.github/CONTRIBUTING.md).
+(??)<hr/>
+(??)
+(??)
+(??)<a href="https://bstats.org/plugin/bukkit/OldCombatMechanics">
+(??)    <img src="https://bstats.org/signatures/bukkit/OldCombatMechanics.svg" alt="bStats">
+(??)</a>
