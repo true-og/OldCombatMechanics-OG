@@ -39,6 +39,7 @@ public class ModuleDisableOffHand extends OCMModule {
     private static final int OFFHAND_SLOT = 40;
     private List<Material> materials;
     private String deniedMessage;
+    private String deniedMessageTotem;
     private BlockType blockType;
 
     // Cache reflective methods used on older versions
@@ -57,9 +58,19 @@ public class ModuleDisableOffHand extends OCMModule {
         blockType = module().getBoolean("whitelist") ? BlockType.WHITELIST : BlockType.BLACKLIST;
         materials = ConfigUtils.loadMaterialList(module(), "items");
         deniedMessage = module().getString("denied-message");
+        deniedMessageTotem = module().getString("denied-message-totem", "");
     }
 
     private void sendDeniedMessage(CommandSender sender) {
+        sendDeniedMessage(sender, null);
+    }
+
+    private void sendDeniedMessage(CommandSender sender, ItemStack item) {
+        if (item != null && item.getType() == Material.TOTEM_OF_UNDYING
+                && deniedMessageTotem != null && !deniedMessageTotem.trim().isEmpty()) {
+            Messenger.send(sender, deniedMessageTotem);
+            return;
+        }
         if (!deniedMessage.trim().isEmpty())
             Messenger.send(sender, deniedMessage);
     }
@@ -69,7 +80,7 @@ public class ModuleDisableOffHand extends OCMModule {
         final Player player = e.getPlayer();
         if (isEnabled(player) && isItemBlocked(e.getOffHandItem())) {
             e.setCancelled(true);
-            sendDeniedMessage(player);
+            sendDeniedMessage(player, e.getOffHandItem());
         }
     }
 
@@ -83,7 +94,7 @@ public class ModuleDisableOffHand extends OCMModule {
         try {
             if (clickType == ClickType.SWAP_OFFHAND) {
                 e.setResult(Event.Result.DENY);
-                sendDeniedMessage(player);
+                sendDeniedMessage(player, e.getCurrentItem());
                 return;
             }
         } catch (NoSuchFieldError ignored) {
@@ -142,14 +153,20 @@ public class ModuleDisableOffHand extends OCMModule {
                 && e.getSlot() != OFFHAND_SLOT
                 && e.isShiftClick()) {
             e.setResult(Event.Result.DENY);
-            sendDeniedMessage(player);
+            sendDeniedMessage(player, currentItem);
         }
 
-        if (e.getSlot() == OFFHAND_SLOT &&
-                ((clickType == ClickType.NUMBER_KEY && isItemBlocked(clickedInventory.getItem(e.getHotbarButton())))
-                        || isItemBlocked(e.getCursor()))) {
-            e.setResult(Event.Result.DENY);
-            sendDeniedMessage(player);
+        if (e.getSlot() == OFFHAND_SLOT) {
+            if (clickType == ClickType.NUMBER_KEY) {
+                final ItemStack hotbarItem = clickedInventory.getItem(e.getHotbarButton());
+                if (isItemBlocked(hotbarItem)) {
+                    e.setResult(Event.Result.DENY);
+                    sendDeniedMessage(player, hotbarItem);
+                }
+            } else if (isItemBlocked(e.getCursor())) {
+                e.setResult(Event.Result.DENY);
+                sendDeniedMessage(player, e.getCursor());
+            }
         }
     }
 
@@ -163,7 +180,7 @@ public class ModuleDisableOffHand extends OCMModule {
 
         if (isItemBlocked(e.getOldCursor())) {
             e.setResult(Event.Result.DENY);
-            sendDeniedMessage(player);
+            sendDeniedMessage(player, e.getOldCursor());
         }
     }
 
@@ -181,7 +198,7 @@ public class ModuleDisableOffHand extends OCMModule {
         final ItemStack offHandItem = inventory.getItemInOffHand();
 
         if (isItemBlocked(offHandItem)) {
-            sendDeniedMessage(player);
+            sendDeniedMessage(player, offHandItem);
             inventory.setItemInOffHand(new ItemStack(Material.AIR));
             if (!inventory.addItem(offHandItem).isEmpty())
                 player.getWorld().dropItemNaturally(player.getLocation(), offHandItem);
