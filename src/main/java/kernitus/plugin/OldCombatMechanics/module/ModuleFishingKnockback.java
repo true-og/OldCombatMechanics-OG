@@ -7,6 +7,7 @@ package kernitus.plugin.OldCombatMechanics.module;
 
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import com.cryptomorin.xseries.XEntityType;
+import kernitus.plugin.OldCombatMechanics.utilities.KnockbackSyncRodHook;
 import kernitus.plugin.OldCombatMechanics.utilities.reflection.SpigotFunctionChooser;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -98,9 +99,22 @@ public class ModuleFishingKnockback extends OCMModule {
         if (damage < 0)
             damage = 0.0001;
 
+        // Compute the 1.8 bobber-direction knockback from the victim's pre-damage motion, so it is
+        // not contaminated by the damage tick's own (melee) knockback.
+        final Vector rodKnockback = calculateKnockbackVelocity(
+                livingEntity.getVelocity(), livingEntity.getLocation(), hook.getLocation());
+
+        // If KnockbackSync owns this player's velocity, hand it the rod vector so it applies the
+        // same latency Y-correction it gives melee knockback (consistent 1.8 feel). It consumes the
+        // vector via the PlayerVelocityEvent produced by the damage below. Otherwise (KnockbackSync
+        // absent/disabled/not tracking) we apply the knockback directly, as standalone OCM does.
+        final boolean syncOwnsKnockback = livingEntity instanceof Player
+                && KnockbackSyncRodHook.applyRodKnockback((Player) livingEntity, rodKnockback);
+
         livingEntity.damage(damage, rodder);
-        livingEntity.setVelocity(
-                calculateKnockbackVelocity(livingEntity.getVelocity(), livingEntity.getLocation(), hook.getLocation()));
+
+        if (!syncOwnsKnockback)
+            livingEntity.setVelocity(rodKnockback);
     }
 
     private Vector calculateKnockbackVelocity(Vector currentVelocity, Location player, Location hook) {
