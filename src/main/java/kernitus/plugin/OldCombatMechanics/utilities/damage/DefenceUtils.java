@@ -339,6 +339,7 @@ public class DefenceUtils {
                     EntityDamageEvent.DamageCause.PROJECTILE,
                     EntityDamageEvent.DamageCause.FALL,
                     EntityDamageEvent.DamageCause.FIRE,
+                    EntityDamageEvent.DamageCause.FIRE_TICK,
                     EntityDamageEvent.DamageCause.LAVA,
                     EntityDamageEvent.DamageCause.BLOCK_EXPLOSION,
                     EntityDamageEvent.DamageCause.ENTITY_EXPLOSION,
