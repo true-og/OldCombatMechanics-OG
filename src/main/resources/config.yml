@@ -100,7 +100,7 @@ attack-frequency:
   # Vanilla 1.8 EntityLivingBase.maxHurtResistantTime = 20 ticks. Setting playerDelay to 20
   # reproduces the half-rule combo window (hits after 10t allowed only at higher damage as in 1.8),
   playerDelay: 20
-  mobDelay: 18
+  mobDelay: 20
 
 attack-range:
   # Applies 1.8-style hit detection (smaller hitbox margin, shorter creative reach).
