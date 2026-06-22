@@ -359,6 +359,17 @@ public class ModuleSwordBlocking extends OCMModule {
         if (module().getBoolean("use-permission") &&
                 !player.hasPermission("oldcombatmechanics.swordblock")) return;
 
+        // PvP rod combo: a fishing rod in the offhand means the player wants to cast/reel it. If we give the
+        // main-hand sword a blocking use-action (Paper consumable component) or swap a shield into the offhand
+        // (legacy path), the right-click is consumed by the block and the rod never fires. Let the offhand rod
+        // win, and strip any stale consumable component so the client falls through to the offhand item.
+        if (isFishingRod(offHandItem.getType())) {
+            if (stripConsumable(mainHandItem)) {
+                inventory.setItemInMainHand(mainHandItem);
+            }
+            return;
+        }
+
         if (supportsPaperAnimation(player)) {
             // Modern Paper path: we can provide a sword blocking animation via components, without swapping an
             // offhand shield. This avoids the legacy polling/restore tasks and avoids interfering with offhand
@@ -693,6 +704,10 @@ public class ModuleSwordBlocking extends OCMModule {
         return mat.toString().endsWith("_SWORD");
     }
 
+    private boolean isFishingRod(Material mat) {
+        return mat == Material.FISHING_ROD;
+    }
+
     public static ModuleSwordBlocking getInstance() {
         return INSTANCE;
     }
@@ -744,6 +759,10 @@ public class ModuleSwordBlocking extends OCMModule {
         if (!supportsPaperAnimation(player) || paperApply == null) return false;
         if (item == null || item.getType() == Material.AIR || !isHoldingSword(item.getType())) return false;
         if (!isEnabled(player)) return false;
+        // Do not make the sword consumable while a fishing rod sits in the offhand: the rod's right-click would
+        // otherwise be swallowed by the sword's block animation (the client tries the main hand first). See
+        // doShieldBlock. This blocks the proactive application paths (slot change, hand swap, state sweep).
+        if (isFishingRod(player.getInventory().getItemInOffHand().getType())) return false;
         if (hasConsumableComponent(item)) return false;
         try {
             paperApply.invoke(paperAdapter, item);
