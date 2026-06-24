@@ -43,7 +43,11 @@ disabled_modules:
   # Modules listed here are always disabled, regardless of modeset.
   # Of course, disabling a module which disables something will enable that something!
   - "attack-range"
-  # KnockbackSync-OG owns player knockback on this server stack.
+  # KnockbackSync-OG owns player knockback on this server stack. It applies the 1.8
+  # melee velocity and, with its legacy_knockback.enable_knockback_resistance=false,
+  # nullifies netherite knockback resistance for projectile PvP. projectile-knockback
+  # (snowball/egg/ender-pearl damage) and old-fishing-knockback below remain OCM's and
+  # are complementary — keep old-player-knockback disabled to avoid double knockback.
   - "old-player-knockback"
   - "update-checker"
 
