@@ -140,6 +140,11 @@ public class EntityDamageByEntityListener extends OCMModule {
         } else {
             final Entity damager = ((EntityDamageByEntityEvent) event).getDamager();
 
+            // Inside the invulnerability window NMS fires the event with lastHurt already subtracted
+            // from the base damage; capture the gate-time value before restoreLastDamage overwrites it
+            final double gateTimeLastHurt = damagee instanceof LivingEntity
+                    ? ((LivingEntity) damagee).getLastDamage() : 0.0;
+
             // Call event constructor before setting lastDamage back, because we need it for calculations
             final OCMEntityDamageByEntityEvent e = new OCMEntityDamageByEntityEvent
                     (damager, damagee, event.getCause(), event.getDamage());
@@ -155,7 +160,21 @@ public class EntityDamageByEntityListener extends OCMModule {
             // Call event for the other modules to make their modifications
             plugin.getServer().getPluginManager().callEvent(e);
 
-            if (e.isCancelled()) return;
+            if (e.isCancelled()) {
+                // Non-living damagers (arrows, fireballs, splash potions) skip module recalculation,
+                // but must still pass the overdamage gate: lastHurt is pinned to 0 after every hit,
+                // so the NMS invulnerability check can no longer reject them on its own
+                if (!(damager instanceof LivingEntity) && damagee instanceof LivingEntity) {
+                    final LivingEntity livingDamagee = (LivingEntity) damagee;
+                    double fullDamage = event.getDamage();
+                    // Rebuild the full vanilla amount: in-window NMS already subtracted gate-time lastHurt
+                    if ((float) livingDamagee.getNoDamageTicks() > (float) livingDamagee.getMaximumNoDamageTicks() / 2.0F)
+                        fullDamage += gateTimeLastHurt;
+                    final double gated = checkOverdamage(livingDamagee, event, fullDamage);
+                    if (!event.isCancelled()) event.setDamage(Math.max(0.0, gated));
+                }
+                return;
+            }
 
             // Now we re-calculate damage modified by the modules and set it back to original event
             // Attack components order: (Base + Potion effects, scaled by attack delay) + Critical Hit + (Enchantments, scaled by attack delay)

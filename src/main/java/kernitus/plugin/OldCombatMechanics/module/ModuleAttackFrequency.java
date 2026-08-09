@@ -32,8 +32,9 @@ public class ModuleAttackFrequency extends OCMModule {
 
     @Override
     public void reload() {
-        playerDelay = module().getInt("playerDelay");
-        mobDelay = module().getInt("mobDelay");
+        // Explicit vanilla-20 fallback for non-numeric values or builds without jar config defaults
+        playerDelay = module().getInt("playerDelay", DEFAULT_DELAY);
+        mobDelay = module().getInt("mobDelay", DEFAULT_DELAY);
 
         Bukkit.getWorlds().forEach(world -> world.getLivingEntities().forEach(livingEntity -> {
             if (livingEntity instanceof Player)

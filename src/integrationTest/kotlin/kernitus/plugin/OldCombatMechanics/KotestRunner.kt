@@ -21,12 +21,12 @@ import io.kotest.engine.TestEngineLauncher
 import io.kotest.engine.listener.AbstractTestEngineListener
 import io.kotest.engine.listener.CompositeTestEngineListener
 import io.kotest.engine.listener.EnhancedConsoleTestEngineListener
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.coroutineContext
 
 @OptIn(ExperimentalKotest::class)
 object KotestProjectConfig : AbstractProjectConfig() {
@@ -36,24 +36,14 @@ object KotestProjectConfig : AbstractProjectConfig() {
     override val testCaseOrder = TestCaseOrder.Sequential
 }
 
-class BukkitMainThreadDispatcher(
-    private val plugin: JavaPlugin
-) : CoroutineDispatcher() {
-    override fun dispatch(
-        context: CoroutineContext,
-        block: Runnable
-    ) {
+class BukkitMainThreadDispatcher(private val plugin: JavaPlugin) : CoroutineDispatcher() {
+    override fun dispatch(context: CoroutineContext, block: Runnable) {
         Bukkit.getScheduler().runTask(plugin, block)
     }
 }
 
-class MainThreadDispatcherExtension(
-    private val plugin: JavaPlugin
-) : TestCaseExtension {
-    override suspend fun intercept(
-        testCase: TestCase,
-        execute: suspend (TestCase) -> TestResult
-    ): TestResult {
+class MainThreadDispatcherExtension(private val plugin: JavaPlugin) : TestCaseExtension {
+    override suspend fun intercept(testCase: TestCase, execute: suspend (TestCase) -> TestResult): TestResult {
         val dispatcher = BukkitMainThreadDispatcher(plugin)
         val newContext = coroutineContext + dispatcher
         return withContext(newContext) {
@@ -93,10 +83,7 @@ object KotestRunner {
                         return null
                     }
 
-                    fun formatFailure(
-                        testCase: TestCase,
-                        result: TestResult
-                    ): String {
+                    fun formatFailure(testCase: TestCase, result: TestResult): String {
                         val specName = testCase.spec::class.qualifiedName ?: testCase.spec::class.java.name
                         val testName = testCase.displayName
                         val t = throwableFromResult(result)
@@ -126,10 +113,7 @@ object KotestRunner {
 
                     val listener =
                         object : AbstractTestEngineListener() {
-                            override suspend fun testFinished(
-                                testCase: TestCase,
-                                result: TestResult
-                            ) {
+                            override suspend fun testFinished(testCase: TestCase, result: TestResult) {
                                 if (result.isFailure || result.isError) {
                                     hasFailures = true
                                     if (failureLines.size < 25) {
@@ -166,6 +150,7 @@ object KotestRunner {
                             CopperToolsIntegrationTest::class,
                             OldPotionEffectsIntegrationTest::class,
                             InvulnerabilityDamageIntegrationTest::class,
+                            MobInvulnerabilityIntegrationTest::class,
                             FireAspectOverdamageIntegrationTest::class,
                             OldCriticalHitsIntegrationTest::class,
                             OldToolDamageMobIntegrationTest::class,
