@@ -16,6 +16,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -44,6 +45,7 @@ public class ModuleOldToolDamage extends OCMModule {
     private boolean tooltipEnabled;
     private String tooltipPrefix;
     private final TooltipListener tooltipListener;
+    private static ModuleOldToolDamage INSTANCE;
 
     static {
         Class<?> tridentClass = null;
@@ -60,6 +62,7 @@ public class ModuleOldToolDamage extends OCMModule {
 
     public ModuleOldToolDamage(OCMMain plugin) {
         super(plugin, "old-tool-damage");
+        INSTANCE = this;
         tooltipListener = new TooltipListener();
         Bukkit.getPluginManager().registerEvents(tooltipListener, plugin);
         reload();
@@ -125,7 +128,7 @@ public class ModuleOldToolDamage extends OCMModule {
 
             event.setBaseDamage(adjustedBase);
             Messenger.debug("Old tool damage: " + oldBaseDamage + " New: " + adjustedBase);
-        } else if (damager instanceof org.bukkit.entity.LivingEntity) {
+        } else if (damager instanceof LivingEntity) {
             if (expectedBaseDamage == null) {
                 debug("No baseline damage for " + weaponMaterial + ", ignoring mob weapon.", damager);
                 return;
@@ -135,7 +138,9 @@ public class ModuleOldToolDamage extends OCMModule {
             // This means custom mob weapons are not detected and will still be shifted, which may
             // interact poorly with other plugins that modify mob damage in non-vanilla ways.
             final double delta = newWeaponBaseDamage - expectedBaseDamage;
-            final double newBaseDamage = oldBaseDamage + delta;
+            // Difficulty scales incoming damage before the event fires (hard is 1.5x), so the delta
+            // must be scaled the same way or armed mobs keep a fraction of their 1.9 damage
+            final double newBaseDamage = oldBaseDamage + delta * incomingDamageScale(event.getDamagee(), oldBaseDamage);
             event.setBaseDamage(newBaseDamage);
             Messenger.debug("Old tool damage (mob): " + oldBaseDamage + " New: " + newBaseDamage);
         }
@@ -163,16 +168,35 @@ public class ModuleOldToolDamage extends OCMModule {
         return mat.toString().endsWith("_" + type.toUpperCase(Locale.ROOT));
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onTridentProjectile(org.bukkit.event.entity.EntityDamageByEntityEvent event) {
-        if (!HAS_TRIDENT || !TRIDENT_CLASS.isInstance(event.getDamager())) return;
-        if (!isEnabledForAttacker(event.getDamager())) return;
+    // Difficulty scaling that vanilla applies to player damage before the event fires, so weapon
+    // deltas expressed in unscaled 1.9 terms land on the same scale as the hit. Only players are
+    // scaled, and only for mob attackers, which is exactly this branch.
+    private double incomingDamageScale(Entity damagee, double scaledBaseDamage) {
+        if (!(damagee instanceof Player) || scaledBaseDamage <= 0) return 1.0;
+        switch (damagee.getWorld().getDifficulty()) {
+            case HARD:
+                return 1.5;
+            case EASY:
+                // Easy is min(amount / 2 + 1, amount), an affine map, so a delta scales by its
+                // slope of 0.5, and only above 2 damage where the halving actually applies
+                return scaledBaseDamage > 2.0 ? 0.5 : 1.0;
+            default:
+                return 1.0;
+        }
+    }
 
+    // Configured thrown-trident damage, or a negative value to leave the damage alone.
+    // EntityDamageByEntityListener applies this before the overdamage gate so the stored
+    // baseline matches the damage the hit actually deals.
+    public double getThrownTridentDamage(Entity damager) {
+        if (!HAS_TRIDENT || !TRIDENT_CLASS.isInstance(damager)) return -1;
+        if (!isEnabledForAttacker(damager)) return -1;
         final double configured = WeaponDamages.getDamage("TRIDENT_THROWN");
-        if (configured <= 0) return;
+        return configured > 0 ? configured : -1;
+    }
 
-        event.setDamage(configured);
-        debug("Applied custom thrown trident damage: " + configured, event.getDamager());
+    public static ModuleOldToolDamage getInstance() {
+        return INSTANCE;
     }
 
     private boolean shouldApplyTooltip(Player player) {

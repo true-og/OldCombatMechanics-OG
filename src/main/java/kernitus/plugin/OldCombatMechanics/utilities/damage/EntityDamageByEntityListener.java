@@ -7,6 +7,7 @@ package kernitus.plugin.OldCombatMechanics.utilities.damage;
 
 import kernitus.plugin.OldCombatMechanics.OCMMain;
 import kernitus.plugin.OldCombatMechanics.module.OCMModule;
+import kernitus.plugin.OldCombatMechanics.module.ModuleOldToolDamage;
 import kernitus.plugin.OldCombatMechanics.module.ModuleSwordBlocking;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -170,6 +171,16 @@ public class EntityDamageByEntityListener extends OCMModule {
                     // Rebuild the full vanilla amount: in-window NMS already subtracted gate-time lastHurt
                     if ((float) livingDamagee.getNoDamageTicks() > (float) livingDamagee.getMaximumNoDamageTicks() / 2.0F)
                         fullDamage += gateTimeLastHurt;
+                    // Configured thrown-trident damage replaces the full amount before gating, so the
+                    // stored baseline matches the hit. It is a full hit value, never an increment.
+                    final ModuleOldToolDamage toolDamage = ModuleOldToolDamage.getInstance();
+                    if (toolDamage != null) {
+                        final double tridentDamage = toolDamage.getThrownTridentDamage(damager);
+                        if (tridentDamage > 0) {
+                            fullDamage = tridentDamage;
+                            debug("Applied custom thrown trident damage: " + tridentDamage, damager);
+                        }
+                    }
                     final double gated = checkOverdamage(livingDamagee, event, fullDamage);
                     if (!event.isCancelled()) event.setDamage(Math.max(0.0, gated));
                 }
@@ -379,8 +390,13 @@ public class EntityDamageByEntityListener extends OCMModule {
         }
         // Update the last damage done, including when it was overdamage.
         // This means attacks must keep increasing in value during immunity period to keep dealing overdamage.
-        lastDamages.put(livingDamagee.getUniqueId(), newLastDamage);
-        touchExpiry(livingDamagee);
+        // Non-entity damage outside the window is cleared again by the MONITOR handler below, so skip
+        // storing it here rather than storing a baseline that is deleted in the same event
+        if (event instanceof EntityDamageByEntityEvent
+                || (float) livingDamagee.getNoDamageTicks() > (float) livingDamagee.getMaximumNoDamageTicks() / 2.0F) {
+            lastDamages.put(livingDamagee.getUniqueId(), newLastDamage);
+            touchExpiry(livingDamagee);
+        }
 
         return newDamage;
     }

@@ -247,6 +247,9 @@ sword-blocking:
   restoreDelay: 40
   # Whether to require players to have oldcombatmechanics.swordblock permission to block with a sword
   use-permission: false
+  # Delete every shield that is not the temporary one this module creates for sword blocking
+  # Also blocks the armorer villager shield trade and shield pickups, so shields cannot be kept
+  remove-real-shields: true
 
 disable-sword-sweep:
   # This is to disable the sword sweep attack

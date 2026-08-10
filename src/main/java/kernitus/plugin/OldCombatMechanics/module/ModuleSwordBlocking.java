@@ -18,13 +18,18 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockCanBuildEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.VillagerAcquireTradeEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -88,6 +93,18 @@ public class ModuleSwordBlocking extends OCMModule {
         initialisePacketEventsClientVersion();
         initialiseLegacyShieldMarker();
         Bukkit.getPluginManager().registerEvents(new ConsumableLifecycleHandler(), plugin);
+        startShieldPurgeSweeper();
+    }
+
+    // Events cannot cover every way a shield appears, e.g. a staff /give or another plugin
+    // writing one straight into an inventory, so sweep online players as a backstop.
+    private void startShieldPurgeSweeper() {
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!removeRealShields()) return;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                purgeRealShields(player.getInventory());
+            }
+        }, 20L, 20L);
     }
 
     @Override
@@ -425,6 +442,60 @@ public class ModuleSwordBlocking extends OCMModule {
     public void onPlayerJoin(PlayerJoinEvent e) {
         restore(e.getPlayer(), true);
         stripConsumableState(e.getPlayer(), true);
+        purgeRealShields(e.getPlayer().getInventory());
+        purgeRealShields(e.getPlayer().getEnderChest());
+    }
+
+    // Shields must not exist as items on this server, so the only one allowed is the marked
+    // temporary offhand shield this module creates for sword blocking. Everything else is removed.
+    private boolean removeRealShields() {
+        return module().getBoolean("remove-real-shields", true);
+    }
+
+    private boolean isRealShield(ItemStack item) {
+        if (item == null || item.getType() != Material.SHIELD) return false;
+        // Without marker support the temporary shield is indistinguishable, so keep every shield
+        if (!canMarkTemporaryLegacyShield()) return false;
+        return !hasTemporaryLegacyShieldMarker(item);
+    }
+
+    private void purgeRealShields(Inventory inventory) {
+        if (!removeRealShields() || inventory == null) return;
+        final ItemStack[] contents = inventory.getContents();
+        for (int slot = 0; slot < contents.length; slot++) {
+            // The marker alone decides, so a real shield parked in the offhand is removed too
+            if (isRealShield(contents[slot])) {
+                inventory.setItem(slot, null);
+                debug("Removed a shield: shields do not exist on this server");
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onVillagerAcquireTrade(VillagerAcquireTradeEvent e) {
+        if (!removeRealShields()) return;
+        final ItemStack result = e.getRecipe().getResult();
+        if (result != null && result.getType() == Material.SHIELD) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onShieldPickup(EntityPickupItemEvent e) {
+        if (!removeRealShields()) return;
+        if (!isRealShield(e.getItem().getItemStack())) return;
+        e.setCancelled(true);
+        e.getItem().remove();
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onShieldItemSpawn(ItemSpawnEvent e) {
+        if (!removeRealShields()) return;
+        if (isRealShield(e.getEntity().getItemStack())) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInventoryCloseStripShields(InventoryCloseEvent e) {
+        purgeRealShields(e.getInventory());
+        if (e.getPlayer() instanceof Player) purgeRealShields(((Player) e.getPlayer()).getInventory());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
