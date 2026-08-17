@@ -42,8 +42,7 @@ public class ModuleDisableOffHand extends OCMModule {
     private String deniedMessageTotem;
     private BlockType blockType;
 
-    // Cache reflective methods used on older versions
-    private static volatile boolean useReflectionViewPath = false;
+    // Cache reflective methods used for views that fail the direct API path
     private static Method getViewMethod;
     private static Method getBottomInventoryMethod;
     private static Method getTopInventoryMethod;
@@ -108,42 +107,43 @@ public class ModuleDisableOffHand extends OCMModule {
         if (inventoryType != InventoryType.PLAYER)
             return;
 
-        // First try the modern Bukkit API path. If that fails once (older versions),
-        // fall back to a cached reflection path next time onwards.
-        if (!useReflectionViewPath) {
-            try {
-                final Inventory bottom = e.getView().getBottomInventory();
-                final Inventory top = e.getView().getTopInventory();
-                if (bottom.getType() != InventoryType.CRAFTING && top.getType() != InventoryType.CRAFTING)
-                    return;
-            } catch (Throwable ignored) {
-                useReflectionViewPath = true;
-            }
-        }
-
-        if (useReflectionViewPath) {
+        // Try the direct API path first; some plugin-provided views throw here,
+        // so fall back to reflection resolved against the actual view class.
+        Inventory bottom = null;
+        Inventory top = null;
+        try {
+            bottom = e.getView().getBottomInventory();
+            top = e.getView().getTopInventory();
+        } catch (Throwable apiPathFailure) {
             try {
                 if (getViewMethod == null) {
                     getViewMethod = Reflector.getMethod(e.getClass(), "getView");
                 }
                 final Object view = Reflector.invokeMethod(getViewMethod, e);
 
+                // Cached methods must match the current view class or invoke throws
                 final Class<?> viewClass = view.getClass();
-                if (getBottomInventoryMethod == null) {
+                if (getBottomInventoryMethod == null
+                        || !getBottomInventoryMethod.getDeclaringClass().isAssignableFrom(viewClass)) {
                     getBottomInventoryMethod = Reflector.getMethod(viewClass, "getBottomInventory");
                 }
-                if (getTopInventoryMethod == null) {
+                if (getTopInventoryMethod == null
+                        || !getTopInventoryMethod.getDeclaringClass().isAssignableFrom(viewClass)) {
                     getTopInventoryMethod = Reflector.getMethod(viewClass, "getTopInventory");
                 }
 
-                final Inventory bottom = Reflector.invokeMethod(getBottomInventoryMethod, view);
-                final Inventory top = Reflector.invokeMethod(getTopInventoryMethod, view);
-                if (bottom.getType() != InventoryType.CRAFTING && top.getType() != InventoryType.CRAFTING)
-                    return;
+                bottom = Reflector.invokeMethod(getBottomInventoryMethod, view);
+                top = Reflector.invokeMethod(getTopInventoryMethod, view);
             } catch (RuntimeException exception) {
                 exception.printStackTrace();
             }
         }
+
+        // Skip the click entirely when the view cannot be resolved
+        if (bottom == null || top == null)
+            return;
+        if (bottom.getType() != InventoryType.CRAFTING && top.getType() != InventoryType.CRAFTING)
+            return;
 
         // Prevent shift-clicking a shield into the offhand item slot
         final ItemStack currentItem = e.getCurrentItem();
